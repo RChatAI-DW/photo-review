@@ -58,7 +58,7 @@
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   @media (prefers-reduced-motion:reduce){ .dot.live{animation:none} }
 
-  .mets { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .mets { display:grid; grid-template-columns:repeat(auto-fit,minmax(84px,1fr)); gap:8px; margin-bottom:12px; }
   .met { background:var(--surface); border:1px solid var(--line-soft); border-radius:4px; padding:10px 11px; }
   .met .k { font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); display:block; }
   .met .v { font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:21px; font-weight:700; font-variant-numeric:tabular-nums; display:block; margin-top:1px; }
@@ -67,6 +67,12 @@
   .met.bad .v { color:var(--miss); }
   #note { font-size:12.5px; color:var(--ink-soft); margin:-4px 0 12px; min-height:18px; }
   #note.bad { color:var(--miss); font-weight:600; }
+  #usage {
+    font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:11.5px; line-height:1.5;
+    color:var(--ink-soft); background:var(--surface); border:1px solid var(--line-soft);
+    border-radius:4px; padding:9px 11px; margin:-4px 0 12px; word-break:break-word;
+  }
+  #usage b { color:var(--ink); }
 
   .panel { background:var(--surface); border:1px solid var(--line-soft); border-radius:4px; }
   .panel h2 { font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin:0; padding:11px 14px; border-bottom:1px solid var(--line-soft); }
@@ -125,7 +131,9 @@
     <div class="met" id="m-lat"><span class="k">지연</span><span class="v" id="lat">—<small>ms</small></span></div>
     <div class="met" id="m-tool"><span class="k">검색/문의</span><span class="v"><span id="tool-n">0</span><small>/<span id="ask-n">0</span></small></span></div>
     <div class="met"><span class="k">턴</span><span class="v" id="turns">0</span></div>
+    <div class="met" id="m-cost"><span class="k">쓴 돈</span><span class="v" id="cost">0<small>원</small></span></div>
   </div>
+  <div id="usage">토큰 사용량은 응답이 끝날 때마다 여기 쌓입니다.</div>
   <div id="note">헤드셋 없이 스피커로 하면 앱이 자기 목소리를 들을 수 있습니다. 그러면 «번갈아»로 바꾸십시오.</div>
 
   <div class="panel">
@@ -158,6 +166,60 @@
   var chatSessionId=null, speechStopAt=0, awaiting=false;
   var lats=[], askCount=0, toolCount=0, turnCount=0;
   var tok=null, reenableTimer=null;
+
+  // ── 실시간 비용계 ─────────────────────────────────────────────────────
+  // OpenAI 대시보드는 몇 시간 늦게 반영된다. 응답마다 오는 usage로 직접 센다.
+  // 단가는 100만 토큰당 달러 (developers.openai.com/api/docs/pricing, 2026-08 확인).
+  var RATES = {
+    "gpt-realtime-2.1":      { ti:4.00, tc:0.40, to:24.00, ai:32.00, ac:0.40, ao:64.00 },
+    "gpt-realtime-2.1-mini": { ti:0.60, tc:0.06, to:2.40,  ai:10.00, ac:0.30, ao:20.00 }
+  };
+  var KRW = 1400;              // 환율은 어림값 — 원화는 참고용이다
+  var model = "gpt-realtime-2.1";
+  var acc = { ai:0, ac:0, ti:0, tc:0, ao:0, to:0, usd:0, n:0 };
+
+  function num(x){ return typeof x === "number" && isFinite(x) ? x : 0; }
+
+  function addUsage(u){
+    if (!u) return;
+    var idet = u.input_token_details || {};
+    var odet = u.output_token_details || {};
+    var cdet = idet.cached_tokens_details || {};
+
+    var inAudio  = num(idet.audio_tokens);
+    var inText   = num(idet.text_tokens);
+    var cAudio   = num(cdet.audio_tokens);
+    var cText    = num(cdet.text_tokens);
+
+    // 세부가 없으면(형태가 다르면) 보수적으로 전부 오디오로 친다 — 과소계상보다 낫다
+    if (!inAudio && !inText) { inAudio = num(u.input_tokens); cAudio = num(idet.cached_tokens); }
+    if (!cAudio && !cText && idet.cached_tokens) cAudio = num(idet.cached_tokens);
+
+    var outAudio = num(odet.audio_tokens);
+    var outText  = num(odet.text_tokens);
+    if (!outAudio && !outText) outAudio = num(u.output_tokens);
+
+    var freshA = Math.max(0, inAudio - cAudio);
+    var freshT = Math.max(0, inText  - cText);
+
+    acc.ai += freshA; acc.ac += cAudio; acc.ti += freshT; acc.tc += cText;
+    acc.ao += outAudio; acc.to += outText; acc.n++;
+
+    var r = RATES[model] || RATES["gpt-realtime-2.1"];
+    acc.usd = (acc.ai*r.ai + acc.ac*r.ac + acc.ti*r.ti + acc.tc*r.tc + acc.ao*r.ao + acc.to*r.to) / 1e6;
+
+    var won = acc.usd * KRW;
+    $("cost").innerHTML = (won < 1000 ? won.toFixed(0) : Math.round(won).toLocaleString()) + "<small>원</small>";
+    $("m-cost").className = "met " + (acc.usd > 4 ? "bad" : "good");
+
+    var per = acc.n ? (acc.usd / acc.n) : 0;
+    $("usage").innerHTML =
+      "<b>$" + acc.usd.toFixed(4) + "</b> 누적 · 응답 " + acc.n + "회 · 회당 $" + per.toFixed(4) +
+      "<br>들은 소리 " + (acc.ai + acc.ac).toLocaleString() + " (캐시 " + acc.ac.toLocaleString() + ")" +
+      " · 한 말 " + acc.ao.toLocaleString() +
+      " · 글자 " + (acc.ti + acc.tc + acc.to).toLocaleString() +
+      "<br>모델 " + model + " · $5 기준 남음 약 <b>$" + Math.max(0, 5 - acc.usd).toFixed(2) + "</b>";
+  }
 
   function $(id){ return document.getElementById(id); }
 
@@ -263,6 +325,11 @@
     }
 
     if (m.type==="response.done"){
+      // 실제 usage 형태를 눈으로 확인할 수 있게 원시 이벤트에도 남긴다
+      if (m.response && m.response.usage){
+        ev("usage " + JSON.stringify(m.response.usage));
+        addUsage(m.response.usage);
+      }
       var out=(m.response&&m.response.output)||[];
       for (var i=0;i<out.length;i++) if (out[i].type==="function_call") handleCall(out[i]);
 
@@ -334,6 +401,7 @@
       log("err","오류","임시 키 발급 실패 — "+(t.error||JSON.stringify(t)));
       stop(); return;
     }
+    model = t.model || model;   // 단가를 고르려면 어떤 모델로 붙었는지 알아야 한다
 
     pc=new RTCPeerConnection();
     audioEl=document.createElement("audio");
