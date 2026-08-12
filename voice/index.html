@@ -285,39 +285,65 @@
   }
 
   async function start(){
-    tok=passcode();
-    if (!tok){ log("err","오류","암호가 필요합니다."); return; }
+    // ⚠️ 암호 입력(prompt)과 마이크 열기가 같은 클릭 안에서 끝나야 한다.
+    //    iOS 사파리는 await 를 한 번이라도 거치면 "사용자 조작" 자격을 잃고 마이크를 거부한다.
+    //    그래서 암호가 없으면 여기서 받아만 두고, 실제 시작은 한 번 더 누르게 한다.
+    if (!localStorage.getItem("voice_token")){
+      passcode();
+      if (!localStorage.getItem("voice_token")){ log("err","오류","암호가 필요합니다."); return; }
+      status("암호 저장됨 — «통화 시작»을 한 번 더 누르십시오");
+      return;
+    }
+    tok=localStorage.getItem("voice_token");
+
     $("go").disabled=true;
-    status("임시 키 발급 중…","on");
 
-    var t;
-    try{
-      var tr=await api("?r=token&vad="+$("vad").value,{method:"POST"});
-      t=await tr.json();
-    }catch(e){ log("err","오류","서버에 닿지 못했습니다: "+e.message); $("go").disabled=false; status("대기"); return; }
-
-    if (!t.ok){
-      if (t.error && /암호/.test(t.error)) localStorage.removeItem("voice_token");
-      log("err","오류","임시 키 발급 실패 — "+(t.error||""));
+    // ── ① 마이크 먼저 (await 앞에 와야 한다) ──────────────────────────
+    status("마이크 여는 중…","on");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      log("err","오류","이 브라우저는 마이크를 지원하지 않습니다. 크롬이나 사파리로 열어 주십시오. (주소가 https 인지도 확인)");
       $("go").disabled=false; status("대기"); return;
     }
-
-    status("마이크 여는 중…","on");
     try{
       micStream=await navigator.mediaDevices.getUserMedia({
         audio:{ echoCancellation:true, noiseSuppression:true, autoGainControl:true }
       });
     }catch(e){
-      log("err","오류","마이크를 열지 못했습니다: "+(e&&e.name?e.name:"")+" — 브라우저 권한을 확인하세요.");
+      var nm=(e&&e.name)||"", msg=(e&&e.message)||String(e);
+      var hint = nm==="NotAllowedError" ? " — 브라우저 설정에서 이 사이트의 마이크를 «허용»으로 바꿔 주십시오."
+               : nm==="NotFoundError"  ? " — 마이크를 찾지 못했습니다."
+               : "";
+      log("err","오류","마이크를 열지 못했습니다 ["+nm+"] "+msg+hint);
       $("go").disabled=false; status("대기"); return;
     }
     micTrack=micStream.getTracks()[0];
+
+    // ── ② 임시 키 ────────────────────────────────────────────────────
+    status("임시 키 발급 중…","on");
+    var t;
+    try{
+      var tr=await api("?r=token&vad="+$("vad").value,{method:"POST"});
+      t=await tr.json();
+    }catch(e){
+      log("err","오류","서버에 닿지 못했습니다: "+(e&&e.message?e.message:String(e)));
+      stop(); return;
+    }
+
+    if (!t.ok){
+      if (t.error && /암호/.test(t.error)) localStorage.removeItem("voice_token");
+      log("err","오류","임시 키 발급 실패 — "+(t.error||JSON.stringify(t)));
+      stop(); return;
+    }
 
     pc=new RTCPeerConnection();
     audioEl=document.createElement("audio");
     audioEl.autoplay=true;
     audioEl.setAttribute("playsinline","");
-    pc.ontrack=function(e){ audioEl.srcObject=e.streams[0]; };
+    pc.ontrack=function(e){
+      audioEl.srcObject=e.streams[0];
+      // iOS는 자동재생을 막을 수 있다 — 실패해도 대화는 이어지므로 조용히 넘긴다
+      var p=audioEl.play(); if (p && p.catch) p.catch(function(){});
+    };
     pc.addTrack(micTrack);
 
     dc=pc.createDataChannel("oai-events");
@@ -341,10 +367,15 @@
     });
     var ans=await sr.text();
     if (!sr.ok){
-      log("err","오류","SDP 교환 실패 ("+sr.status+"): "+ans.slice(0,300));
-      $("go").disabled=false; status("대기"); return;
+      log("err","오류","SDP 교환 실패 ("+sr.status+"): "+ans.slice(0,400));
+      stop(); return;
     }
-    await pc.setRemoteDescription({type:"answer",sdp:ans});
+    try{
+      await pc.setRemoteDescription({type:"answer",sdp:ans});
+    }catch(e){
+      log("err","오류","응답 SDP 적용 실패: "+(e&&e.message?e.message:String(e)));
+      stop(); return;
+    }
   }
 
   function stop(){
@@ -355,7 +386,21 @@
     $("go").disabled=false; $("stop").disabled=true; status("끊김");
   }
 
-  $("go").addEventListener("click",start);
+  // 어디서 터지든 화면에 남기고 버튼을 되살린다 — 폰에선 콘솔을 볼 수 없다
+  $("go").addEventListener("click",function(){
+    if (typeof RTCPeerConnection==="undefined"){
+      log("err","오류","이 브라우저는 WebRTC를 지원하지 않습니다. 크롬이나 사파리 최신판으로 열어 주십시오.");
+      return;
+    }
+    start().catch(function(e){
+      log("err","오류","예상 못 한 실패 ["+((e&&e.name)||"")+"] "+((e&&e.message)||String(e)));
+      stop();
+    });
+  });
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e && e.reason;
+    log("err","오류(미처리)",((r&&r.name)||"")+" "+((r&&r.message)||String(r)));
+  });
   $("stop").addEventListener("click",stop);
   $("mode").addEventListener("change",function(){
     if ($("mode").value==="duplex") setMic(true);
