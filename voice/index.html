@@ -367,7 +367,18 @@
     });
     var ans=await sr.text();
     if (!sr.ok){
-      log("err","오류","SDP 교환 실패 ("+sr.status+"): "+ans.slice(0,400));
+      // OpenAI가 돌려주는 영문 JSON을 그대로 보여주면 폰에서 읽기 어렵다 — 흔한 것은 한국어로 바꾼다
+      var code="", emsg="";
+      try{ var ej=JSON.parse(ans); code=(ej.error&&ej.error.code)||""; emsg=(ej.error&&ej.error.message)||""; }catch(e){}
+      var ko =
+        code==="credit_balance_exhausted" || /insufficient_quota/.test(ans)
+          ? "OpenAI 계정에 크레딧이 없습니다. platform.openai.com → Billing 에서 충전(최소 $5)한 뒤 다시 시도하십시오."
+        : sr.status===401
+          ? "OpenAI 키가 거부되었습니다. 키를 다시 설정해야 합니다."
+        : sr.status===429
+          ? "요청이 몰렸습니다. 잠시 후 다시 시도하십시오."
+        : "";
+      log("err","오류", ko ? ko : ("연결 실패 ("+sr.status+"): "+(emsg||ans.slice(0,300))));
       stop(); return;
     }
     try{
