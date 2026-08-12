@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RChatAI 부품 사진 검수</title>
+<meta property="og:title" content="RChatAI 부품 사진 검수">
+<meta property="og:description" content="브랜드·세부 카테고리별로 사진을 모아 놓고, 같은 물건인지 눈으로 확인하는 도구">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.png">
+<style>
+  :root{
+    --bg:#f4f4f2; --card:#fff; --line:#dcdcd6; --ink:#1c1c1a; --dim:#6b6b64;
+    --ok:#1a7f4b; --bad:#c0392b; --warn:#b8860b; --accent:#2f5fd0;
+    --okbg:#e6f4ec; --badbg:#fbeae8; --webbg:#fff4e0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); font-size:16px; line-height:1.5;
+    font-family:"Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  button{font-family:inherit; font-size:inherit; cursor:pointer}
+
+  /* ── 머리말 ─────────────────────────────────────────── */
+  header{
+    position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid var(--line);
+    padding:12px 18px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+  }
+  header h1{font-size:19px; margin:0; font-weight:700; white-space:nowrap}
+  .progress{font-size:14px; color:var(--dim); white-space:nowrap}
+  .progress b{color:var(--ink); font-variant-numeric:tabular-nums}
+  .spacer{flex:1}
+  .btn{
+    border:1px solid var(--line); background:#fff; border-radius:7px;
+    padding:7px 13px; font-size:14px; color:var(--ink);
+  }
+  .btn:hover{background:#f0f0ec}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+
+  /* ── 도움말 ─────────────────────────────────────────── */
+  .help{
+    background:#fffbe9; border-bottom:1px solid #e8dfae; padding:12px 18px; font-size:15px;
+  }
+  .help ol{margin:6px 0 0; padding-left:22px}
+  .help li{margin:3px 0}
+  .help .close{float:right}
+
+  /* ── 뼈대 ───────────────────────────────────────────── */
+  .layout{display:flex; align-items:flex-start}
+  aside{
+    position:sticky; top:57px; width:268px; flex:none; max-height:calc(100vh - 57px);
+    overflow:auto; border-right:1px solid var(--line); background:#fafaf8; padding:10px 0 40px;
+  }
+  aside .bsel{display:flex; gap:7px; align-items:center; padding:2px 12px 10px; border-bottom:1px solid var(--line); margin-bottom:8px}
+  aside .bsel label{font-size:12px; color:var(--dim); font-weight:700}
+  aside .bsel select{flex:1; min-width:0; font-family:inherit; font-size:14px; padding:5px 7px;
+                     border:1px solid var(--line); border-radius:6px; background:#fff}
+  aside .bhead{padding:4px 14px 6px; font-size:12px; color:var(--dim); font-weight:700; letter-spacing:.04em}
+  aside button{
+    display:block; width:100%; text-align:left; border:0; background:none;
+    padding:7px 12px 8px 14px; font-size:14.5px; color:var(--ink); border-left:3px solid transparent;
+    line-height:1.35;
+  }
+  aside button:hover{background:#eeeee9}
+  aside button[aria-current="true"]{background:#e8eefb; border-left-color:var(--accent); font-weight:700}
+  aside .cn{display:block; font-size:11.5px; font-weight:400; color:var(--dim); margin-top:1px}
+  aside button[aria-current="true"] .cn{color:var(--accent)}
+  aside .cn .left{color:var(--bad); font-weight:700}
+  aside .cn .fin{color:var(--ok); font-weight:700}
+
+  main{flex:1; min-width:0; padding:14px 18px 90px}
+  .toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px}
+  .toolbar input[type=search]{
+    border:1px solid var(--line); border-radius:7px; padding:8px 11px; font-size:15px; width:230px;
+    font-family:inherit;
+  }
+  .chip{
+    border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 13px; font-size:14px;
+  }
+  .chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:#fff}
+
+  /* ── 대분류 묶음 ────────────────────────────────────── */
+  section.group{margin:0 0 30px}
+  .ghead{
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    padding:9px 0 9px; border-bottom:2px solid var(--ink); margin-bottom:14px;
+  }
+  .ghead h2{font-size:17px; margin:0; font-weight:700}
+  .ghead .cnt{font-size:13px; color:var(--dim)}
+  .verdict{display:flex; gap:6px; align-items:center}
+  .verdict .lab{font-size:13px; color:var(--dim)}
+  .vbtn{border:1px solid var(--line); background:#fff; border-radius:6px; padding:5px 11px; font-size:13px}
+  .vbtn[aria-pressed="true"][data-v="alike"],.vbtn[aria-pressed="true"][data-v="same"]{background:var(--okbg); border-color:var(--ok); color:var(--ok); font-weight:700}
+  .vbtn[aria-pressed="true"][data-v="mixed"]{background:var(--badbg); border-color:var(--bad); color:var(--bad); font-weight:700}
+
+  /* ── 품목 카드 ──────────────────────────────────────── */
+  .items{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; align-items:start}
+  article.item{
+    background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 13px 11px;
+  }
+  article.item.nophoto{background:#f7f7f4; border-style:dashed}
+  .iname{font-size:15px; font-weight:700; margin:0 0 2px; word-break:keep-all}
+  .freq{font-size:11.5px; font-weight:700; color:#7a4b00; background:#ffe9c2;
+        border-radius:4px; padding:1px 6px; vertical-align:2px; white-space:nowrap}
+  .imeta{font-size:12.5px; color:var(--dim); margin-bottom:9px}
+  .hid{color:#9a9a92}
+  .strip{display:flex; gap:7px; flex-wrap:wrap}
+  .tw{position:relative; width:96px; height:96px; flex:none}
+  .zoom{
+    position:absolute; top:3px; left:3px; z-index:2; width:23px; height:23px; padding:0;
+    border:1px solid var(--line); border-radius:5px; background:rgba(255,255,255,.94);
+    font-size:13px; line-height:1; color:var(--dim);
+  }
+  .zoom:hover{background:#fff; color:var(--accent); border-color:var(--accent)}
+  .tw .thumb{width:100%; height:100%}
+  .thumb{
+    position:relative; width:96px; height:96px; padding:0; border:1px solid var(--line);
+    border-radius:7px; overflow:hidden; background:#fff; flex:none;
+  }
+  .thumb img{width:100%; height:100%; object-fit:contain; display:block; background:#fff}
+  .thumb .badge{
+    position:absolute; left:0; bottom:0; right:0; font-size:10px; line-height:1.4; padding:1px 3px;
+    background:rgba(255,255,255,.93); color:var(--dim); text-align:center;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .thumb.web{border-color:#e0a94b; box-shadow:inset 0 0 0 2px var(--webbg)}
+  .thumb.web .badge{background:var(--webbg); color:#8a6414}
+  .thumb[data-mark="ok"]{border-color:var(--ok); box-shadow:0 0 0 2px var(--okbg)}
+  .thumb[data-mark="bad"]{border-color:var(--bad); box-shadow:0 0 0 2px var(--badbg)}
+  .thumb[data-mark="bad"] img{opacity:.35}
+  .thumb .mark{
+    position:absolute; top:2px; right:3px; font-size:15px; font-weight:800; text-shadow:0 0 3px #fff;
+  }
+  .thumb[data-mark="ok"] .mark{color:var(--ok)}
+  .thumb[data-mark="bad"] .mark{color:var(--bad)}
+  .none{font-size:13px; color:var(--warn); padding:6px 0 2px}
+  .more{margin-top:8px; border:1px dashed var(--line); background:#fafaf8; border-radius:6px;
+        padding:5px 11px; font-size:13px; color:var(--accent); width:100%}
+  .more:hover{background:#f0f0ec}
+  .pass{border:1px solid var(--ok); background:var(--okbg); color:var(--ok); font-weight:700;
+        border-radius:6px; padding:6px 13px; font-size:13.5px}
+  .pass:hover{background:var(--ok); color:#fff}
+  .donetag{font-size:12.5px; color:var(--dim)}
+  .donetag b{color:var(--ok)}  .donetag i{color:var(--bad); font-style:normal}
+  .irow{display:flex; gap:6px; align-items:center; margin-top:10px; flex-wrap:wrap}
+
+  /* ── 크게 보기 ──────────────────────────────────────── */
+  dialog{
+    border:0; border-radius:12px; padding:0; width:min(96vw,1060px); background:#fff;
+    box-shadow:0 12px 50px rgba(0,0,0,.3);
+  }
+  dialog::backdrop{background:rgba(20,20,18,.72)}
+  .lbtop{display:flex; gap:12px; align-items:baseline; padding:13px 16px 10px; border-bottom:1px solid var(--line)}
+  .lbtop h3{margin:0; font-size:16px; font-weight:700}
+  .lbtop .sub{font-size:13px; color:var(--dim)}
+  .lbbody{display:flex; gap:0; align-items:stretch; background:#efefec}
+  .lbmain{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:12px}
+  .lbmain img{max-width:100%; max-height:64vh; object-fit:contain; background:#fff; border-radius:6px}
+  .lbside{
+    width:126px; flex:none; border-left:1px solid var(--line); background:#fafaf8;
+    overflow:auto; max-height:64vh; padding:8px; display:flex; flex-direction:column; gap:7px;
+  }
+  .lbside .thumb{width:106px; height:106px}
+  .lbfoot{display:flex; gap:9px; align-items:center; flex-wrap:wrap; padding:12px 16px; border-top:1px solid var(--line)}
+  .big{padding:9px 18px; font-size:15px; font-weight:700; border-radius:8px; border:1px solid var(--line); background:#fff}
+  .big[data-v="ok"]{color:var(--ok); border-color:var(--ok)}
+  .big[data-v="ok"]:hover, .big[data-v="ok"][aria-pressed="true"]{background:var(--ok); color:#fff}
+  .big[data-v="bad"]{color:var(--bad); border-color:var(--bad)}
+  .big[data-v="bad"]:hover, .big[data-v="bad"][aria-pressed="true"]{background:var(--bad); color:#fff}
+  .lbfoot a{font-size:13px; color:var(--accent)}
+  .kbd{font-size:12px; color:var(--dim)}
+  .empty{padding:50px 10px; text-align:center; color:var(--dim)}
+
+  @media (max-width:820px){
+    aside{display:none}
+    .items{grid-template-columns:1fr}
+    .lbside{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>부품 사진 검수</h1>
+  <span class="progress" id="prog"></span>
+  <span class="spacer"></span>
+  <button class="btn" id="helpBtn">쓰는 법</button>
+  <button class="btn primary" id="dl">검수 결과 내려받기</button>
+</header>
+
+<div class="help" id="help">
+  <button class="btn close" id="helpClose">닫기</button>
+  <b>사진이 정말 그 부품이 맞는지 봐주시는 화면입니다.</b>
+  지금은 <b>댄포스에서 자주 팔리는 품목</b>(두원 가격표 565품번 = 54품목)만 보이도록 켜져 있습니다.
+  검색에 쓸 사진을 고르는 일이라, 포장 봉투·박스·라벨만 찍힌 것을 골라내는 게 핵심입니다.
+  <ol>
+    <li><b>사진을 한 번 누르면 초록 ✓(맞음), 또 누르면 빨강 ✕(딴 물건)</b>으로 번갈아 바뀝니다.
+        잘못 눌렀으면 한 번 더 누르시면 됩니다.</li>
+    <li>다 맞으면 카드 아래 <b>“전부 맞음”</b> 한 번으로 그 품목이 통째로 초록이 됩니다.
+        묶음 제목 옆 <b>“이 묶음 사진 전부 맞음”</b>은 보이는 묶음 전체를 한 번에 넘깁니다.</li>
+    <li><b>딴 물건으로 봐주실 것</b> — 댄포스 포장 봉투만 찍힌 것, 종이 박스, 라벨 스티커,
+        운반 가방, 치수 표, 부속(코일)만 찍힌 것.</li>
+    <li>사진 아래 딱지가 출처입니다. <b>제조사 실사</b>(댄포스 공식) · <b>웹 보강</b>(인터넷 수집, 노란 테두리) ·
+        <b>알옥션 대표</b>. 인터넷에서 긁어온 것이 제일 자주 틀립니다.</li>
+    <li><b>3D 렌더는 감춰 뒀습니다.</b> 실물 사진이 아니라 검색에 쓰지 않기 때문입니다.
+        굳이 보시려면 위의 “3D 렌더도 보기”를 누르시면 됩니다.</li>
+    <li>크게 보시려면 사진 왼쪽 위 <b>⤢</b> 를 누르세요. 원본 페이지 링크도 거기 있습니다.
+        (크게 보기 안에서는 <span class="kbd">1</span>=맞음, <span class="kbd">2</span>=딴 물건, <span class="kbd">←→</span>=이동, <span class="kbd">Esc</span>=닫기)</li>
+    <li>다 하시면 위의 <b>검수 결과 내려받기</b>를 눌러 파일을 보내주십시오. (중간에 창을 닫아도 기록은 남습니다.)</li>
+  </ol>
+</div>
+
+<div class="layout">
+  <aside id="side">
+    <div class="bsel"><label for="brandSel">브랜드</label><select id="brandSel"></select></div>
+    <div id="catList"></div>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="품목 이름 검색">
+      <button class="chip" id="fFreq" aria-pressed="true">자주 팔리는 품목만</button>
+      <button class="chip" id="fWeb" aria-pressed="false">웹 보강사진 있는 것만</button>
+      <button class="chip" id="fTodo" aria-pressed="false">아직 안 본 것만</button>
+      <button class="chip" id="fRender" aria-pressed="false">3D 렌더도 보기</button>
+      <button class="chip" id="fNone" aria-pressed="false">사진 없는 품목만</button>
+    </div>
+    <div id="list"></div>
+  </main>
+</div>
+
+<dialog id="lb">
+  <div class="lbtop"><h3 id="lbName"></h3><span class="sub" id="lbSub"></span></div>
+  <div class="lbbody">
+    <div class="lbmain"><img id="lbImg" alt=""></div>
+    <div class="lbside" id="lbSide"></div>
+  </div>
+  <div class="lbfoot">
+    <button class="big" data-v="ok" id="bOk">맞음 (1)</button>
+    <button class="big" data-v="bad" id="bBad">딴 물건 (2)</button>
+    <a id="lbSrc" target="_blank" rel="noopener"></a>
+    <span class="spacer"></span>
+    <span class="kbd">← → 사진 이동 · Esc 닫기</span>
+    <button class="btn" id="lbClose">닫기</button>
+  </div>
+</dialog>
+
+<script src="photos.js"></script>
+<script>
+(function () {
+  "use strict";
+  var D = window.RA_PHOTOS;
+  if (!D) { document.getElementById("list").innerHTML = '<div class="empty">photos.js 를 불러오지 못했습니다.</div>'; return; }
+
+  var KEY = "ra_photo_review_v1";
+  var V = { photo: {}, item: {}, group: {} };
+  try { var s = localStorage.getItem(KEY); if (s) V = Object.assign(V, JSON.parse(s)); } catch (e) {}
+  var saveT = null;
+  function save() {
+    clearTimeout(saveT);
+    saveT = setTimeout(function () { try { localStorage.setItem(KEY, JSON.stringify(V)); } catch (e) {} }, 200);
+    drawProgress();
+    drawSide();   // 왼쪽 "남은 N장"이 누를 때마다 줄어드는 것이 이 화면의 진척감이다
+  }
+
+  var SRCNAME = { a: "알옥션 대표", m: "제조사 실사", w: "웹 보강", u: "손님 확인", r: "3D 렌더" };
+  // 2026-08-12 대표님 지시 — 1차 범위는 **댄포스 자주 팔리는 품목**(두원 가격표 565품번 = 54품목).
+  // 3D 렌더는 검색 코퍼스에 안 넣는 것이 방침이므로 기본으로 감춘다(보려면 칩을 켠다).
+  var filt = { freq: true, web: false, todo: false, none: false, render: false, q: "" };
+  var cur = D.brands.length
+    ? D.brands.slice().sort(function (a, b) { return b.nFreq - a.nFreq || b.nPhoto - a.nPhoto; })[0].b : null;
+  var NOPHOTO = " nophoto";   // 카테고리가 아니라 "볼 사진 없는 품목" 칸을 가리키는 표
+  var curCat = null;               // 왼쪽에서 고른 카테고리 (null = 전체)
+  // 화면에 실제로 펴는 사진. 칸 번호(k)는 **언제나 it.ph 기준**을 유지한다 —
+  // 렌더를 감췄다고 번호가 밀리면 판정이 엉뚱한 사진에 붙는다.
+  function shownPairs(it) {
+    var out = [];
+    it.ph.forEach(function (p, k) { if (filt.render || p.s !== "r") out.push([p, k]); });
+    return out;
+  }
+  var CAP = 12;          // 카드에 기본으로 펴 놓는 사진 장수
+  var expand = {};       // 품목별 "더 보기" 상태
+
+  // ── 총계 ────────────────────────────────────────────
+  // 1차 검수 대상은 웹 보강사진이므로 진행률도 그 기준으로 센다.
+  // 같이 색인도 만든다: 사진id → "품목id:칸번호"(다시 칠할 때), 품목id → 품목(찾을 때).
+  var totPhoto = 0, totWeb = 0, webIds = {}, PHOTO_AT = {}, ITEM_AT = {}, CAT_OF = {};
+  D.brands.forEach(function (b) {
+    totPhoto += b.nPhoto; totWeb += b.nWeb;
+    b.cats.forEach(function (g) {
+      g.it.forEach(function (it) {
+        ITEM_AT[it.id] = it;
+        CAT_OF[it.id] = g.c;
+        it.ph.forEach(function (p, k) {
+          PHOTO_AT[p.i] = it.id + ":" + k;
+          if (p.s === "w") webIds[p.i] = 1;
+        });
+      });
+    });
+  });
+
+  function drawProgress() {
+    var scope = scopePhotos();
+    var done = scope.filter(function (id) { return V.photo[id]; }).length;
+    var bad = scope.filter(function (id) { return V.photo[id] === "bad"; }).length;
+    document.getElementById("prog").innerHTML =
+      (filt.freq ? "댄포스 주력" : "지금 조건") + " <b>" + done.toLocaleString() + "</b> / " +
+      scope.length.toLocaleString() + "장 확인　·　딴 물건 <b>" + bad + "</b>건";
+  }
+
+  // ── 왼쪽 브랜드 목록 ────────────────────────────────
+  // 왼쪽은 **카테고리 목록**이다. 브랜드는 그 위 드롭다운 하나로 줄였다 —
+  // 검수 범위가 댄포스로 좁혀지면 브랜드 38칸이 전부 "0"이 되어 자리만 먹기 때문.
+  function drawSide() {
+    // 브랜드 드롭다운: 지금 조건에서 볼 게 있는 브랜드만
+    var sel = document.getElementById("brandSel");
+    var avail = D.brands.filter(function (b) {
+      return b.cats.some(function (g) { return g.it.some(inScope); });
+    });
+    if (!avail.length) avail = D.brands.slice(0, 1);
+    if (!avail.some(function (b) { return b.b === cur; })) cur = avail[0].b;
+    sel.innerHTML = avail.map(function (b) {
+      var n = b.cats.reduce(function (s, g) { return s + g.it.filter(inScope).length; }, 0);
+      return '<option value="' + esc(b.b) + '"' + (b.b === cur ? " selected" : "") + ">" +
+        esc(b.b) + " (" + n + ")</option>";
+    }).join("");
+    sel.onchange = function () { cur = sel.value; curCat = null; drawSide(); drawList(); drawProgress(); window.scrollTo(0, 0); };
+
+    // 카테고리 목록 + 남은 장수
+    var br = D.brands.filter(function (b) { return b.b === cur; })[0];
+    var rows = [], allItems = 0, allLeft = 0, allTot = 0, noPhoto = 0;
+    (br ? br.cats : []).forEach(function (g) {
+      var its = g.it.filter(inScope);
+      if (!its.length) return;
+      var tot = 0, left = 0, n = 0;
+      its.forEach(function (it) {
+        if (!hasShown(it)) { noPhoto++; return; }   // 볼 게 없는 품목은 아래 별도 칸으로
+        n++;
+        shownPairs(it).forEach(function (pk) { tot++; if (!V.photo[pk[0].i]) left++; });
+      });
+      if (!n) return;
+      rows.push({ c: g.c, n: n, tot: tot, left: left });
+      allItems += n; allTot += tot; allLeft += left;
+    });
+    rows.sort(function (a, b) { return b.tot - a.tot || a.c.localeCompare(b.c, "ko"); });
+
+    var h = ['<div class="bhead">카테고리 — 하나씩 끝내시면 됩니다</div>'];
+    h.push(navBtn(null, "전체 보기", allItems, allTot, allLeft));
+    rows.forEach(function (r) { h.push(navBtn(r.c, r.c, r.n, r.tot, r.left)); });
+    // 감추지 않는다 — 볼 사진이 없는 품목은 "검수 끝"이 아니라 "사진을 구해야 할 것"이다
+    if (noPhoto) {
+      h.push('<button data-c="' + esc(NOPHOTO) + '" aria-current="' + (curCat === NOPHOTO) + '">' +
+        "볼 사진이 없는 품목" +
+        '<span class="cn">품목 ' + noPhoto + "개 · 전부 3D 렌더뿐 — 촬영/수집 대상</span></button>");
+    }
+    var host = document.getElementById("catList");
+    host.innerHTML = h.join("");
+    host.onclick = function (e) {
+      var t = e.target.closest("button[data-c]");
+      if (!t) return;
+      curCat = t.dataset.c === "*" ? null : t.dataset.c;
+      drawSide(); drawList(); window.scrollTo(0, 0);
+    };
+  }
+
+  function navBtn(key, label, nItem, tot, left) {
+    return '<button data-c="' + esc(key === null ? "*" : key) + '" aria-current="' +
+      ((key === null ? null : key) === curCat) + '">' + esc(label) +
+      '<span class="cn">품목 ' + nItem + "개 · " +
+      (tot === 0 ? "사진 없음"
+        : left === 0 ? '<span class="fin">' + tot + "장 다 봄 ✓</span>"
+        : '남은 <span class="left">' + left + "</span>/" + tot + "장") +
+      "</span></button>";
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ── 본문 ────────────────────────────────────────────
+  // inScope = 위쪽 칩 조건만. itemPasses = 거기에 왼쪽에서 고른 카테고리까지.
+  // 둘을 갈라 놔야 카테고리별 남은 장수를 셀 때 자기 자신에 걸려 0이 되지 않는다.
+  function inScope(it) {
+    if (filt.q && it.n.toLowerCase().indexOf(filt.q) === -1) return false;
+    if (filt.none) return it.ph.length === 0;
+    if (filt.freq && !it.f) return false;
+    if (filt.web && !it.ph.some(function (p) { return p.s === "w"; })) return false;
+    var pairs = shownPairs(it);
+    if (filt.todo && pairs.length && pairs.every(function (pk) { return V.photo[pk[0].i]; })) return false;
+    return true;
+  }
+  function hasShown(it) { return shownPairs(it).length > 0; }
+
+  function itemPasses(it) {
+    if (!inScope(it)) return false;
+    if (curCat === NOPHOTO) return !hasShown(it);   // "볼 사진 없음" 칸
+    if (!filt.none && !hasShown(it)) return false;  // 볼 게 없는 품목은 검수 목록에서 뺀다
+    return curCat === null || catOf(it) === curCat;
+  }
+
+  // 품목이 어느 카테고리에 있는지 (데이터가 브랜드→카테고리→품목 이라 역인덱스를 만들어 둔다.
+  // CAT_OF 자체는 위 색인 루프에서 채운다 — 여기서 var 로 다시 선언하면 그때 아직 undefined 다)
+  function catOf(it) { return CAT_OF[it.id]; }
+
+  // 지금 조건에서 사장님이 봐야 할 사진 전부 (진행률의 분모).
+  // 왼쪽에서 카테고리 하나를 골라도 머리말 숫자는 전체 진척을 보여야 하므로 inScope 를 쓴다.
+  function scopePhotos() {
+    var list = [];
+    D.brands.forEach(function (b) {
+      b.cats.forEach(function (g) {
+        g.it.forEach(function (it) {
+          if (!inScope(it)) return;
+          shownPairs(it).forEach(function (pk) { list.push(pk[0].i); });
+        });
+      });
+    });
+    return list;
+  }
+
+  function drawList() {
+    var br = D.brands.filter(function (b) { return b.b === cur; })[0];
+    var host = document.getElementById("list");
+    if (!br) { host.innerHTML = '<div class="empty">브랜드를 고르세요.</div>'; return; }
+
+    var out = [], shown = 0;
+    br.cats.forEach(function (g) {
+      var its = g.it.filter(itemPasses);
+      if (!its.length) return;
+      shown += its.length;
+      var gk = br.b + "/" + g.c, gv = V.group[gk] || "";
+      out.push('<section class="group"><div class="ghead">' +
+        "<h2>" + esc(g.c) + "</h2>" +
+        '<span class="cnt">품목 ' + its.length + "개</span>" +
+        '<span class="spacer"></span>' +
+        '<button class="pass" data-passg="' + esc(gk) + '">이 묶음 사진 전부 맞음</button>' +
+        '<span class="verdict"><span class="lab">품목끼리</span>' +
+          '<button class="vbtn" data-g="' + esc(gk) + '" data-v="alike" aria-pressed="' + (gv === "alike") + '">닮았음</button>' +
+          '<button class="vbtn" data-g="' + esc(gk) + '" data-v="mixed" aria-pressed="' + (gv === "mixed") + '">완전 다른 게 섞임</button>' +
+        "</span></div>");
+
+      out.push('<div class="items">');
+      its.forEach(function (it) {
+        var pairs = shownPairs(it);
+        out.push('<article class="item' + (pairs.length ? "" : " nophoto") + '">');
+        out.push('<h3 class="iname">' + esc(it.n) + (it.f ? ' <span class="freq">자주 ' + it.f + "품번</span>" : "") + "</h3>");
+        var nW = it.ph.filter(function (p) { return p.s === "w"; }).length;
+        var nRender = it.ph.filter(function (p) { return p.s === "r"; }).length;
+        out.push('<div class="imeta">모델 ' + it.m + "개　·　볼 사진 " + pairs.length + "장" +
+          (nW ? "　·　웹 보강 " + nW + "장" : "") +
+          (!filt.render && nRender ? '　·　<span class="hid">3D 렌더 ' + nRender + "장 숨김</span>" : "") + "</div>");
+        if (!pairs.length) {
+          out.push('<div class="none">' + (it.ph.length ? "볼 사진 없음 (전부 3D 렌더)" : "사진 없음 — 촬영 대상") + "</div>");
+        } else {
+          // 사진이 많은 품목은 앞 CAP장만 펴 놓는다 — 카드 하나가 화면을 늘어뜨리지 않도록.
+          var open = expand[it.id], cap = open ? pairs.length : CAP;
+          out.push('<div class="strip">');
+          pairs.slice(0, cap).forEach(function (pk) { out.push(thumbHTML(it, pk[0], pk[1])); });
+          out.push("</div>");
+          if (pairs.length > CAP) {
+            out.push('<button class="more" data-x="' + it.id + '">' +
+              (open ? "접기" : "나머지 " + (pairs.length - CAP) + "장 더 보기") + "</button>");
+          }
+          out.push('<div class="irow">' +
+            '<button class="pass" data-pass="' + it.id + '">전부 맞음</button>' +
+            '<span class="donetag" data-d="' + it.id + '"></span></div>');
+        }
+        out.push("</article>");
+      });
+      out.push("</div></section>");
+    });
+
+    host.innerHTML = shown ? out.join("") : '<div class="empty">조건에 맞는 품목이 없습니다.</div>';
+    br.cats.forEach(function (g) { g.it.filter(itemPasses).forEach(paintDone); });
+  }
+
+  // 카드 안 사진: 몸통을 누르면 맞음↔딴물건 토글, 왼쪽 위 돋보기를 누르면 크게 보기.
+  function thumbHTML(it, p, k) {
+    return '<span class="tw">' +
+      '<button class="zoom" data-p="' + it.id + ":" + k + '" title="크게 보기">⤢</button>' +
+      bareThumb(it, p, k, "t") + "</span>";
+  }
+  // 크게보기 옆 목록: 누르면 그 사진으로 이동 (토글 아님)
+  function sideThumbHTML(it, p, k) { return bareThumb(it, p, k, "p"); }
+
+  function bareThumb(it, p, k, attr) {
+    var mk = V.photo[p.i] || "";
+    return '<button class="thumb' + (p.s === "w" ? " web" : "") + '"' +
+      " data-" + attr + '="' + it.id + ":" + k + '" data-mark="' + mk + '"' +
+      ' title="' + esc(SRCNAME[p.s] + (p.d ? " · " + p.d : "")) +
+      (attr === "t" ? " — 누르면 맞음/딴 물건" : "") + '">' +
+      '<img loading="lazy" src="' + D.base + encodeURI(p.p) + '" alt="">' +
+      '<span class="mark">' + (mk === "ok" ? "✓" : mk === "bad" ? "✕" : "") + "</span>" +
+      '<span class="badge">' + esc(SRCNAME[p.s]) + "</span></button>";
+  }
+
+  // 판정 한 번 = 없음→맞음→딴물건→맞음→… (대표님 지시 2026-08-12)
+  function nextMark(v) { return v === "ok" ? "bad" : "ok"; }
+
+  // 전체 다시 그리면 사진 수천 장짜리 브랜드에서 버벅인다 — 누른 칸만 손본다.
+  function repaint(pid) {
+    var loc = PHOTO_AT[pid];
+    if (!loc) return;
+    var mk = V.photo[pid] || "";
+    document.querySelectorAll('[data-t="' + loc + '"],[data-p="' + loc + '"]').forEach(function (el) {
+      if (!el.classList.contains("thumb")) return;
+      el.dataset.mark = mk;
+      var m = el.querySelector(".mark");
+      if (m) m.textContent = mk === "ok" ? "✓" : mk === "bad" ? "✕" : "";
+    });
+  }
+
+  function paintDone(it) {
+    var el = document.querySelector('.donetag[data-d="' + it.id + '"]');
+    if (!el) return;
+    var pairs = shownPairs(it), ok = 0, bad = 0;
+    pairs.forEach(function (pk) { var v = V.photo[pk[0].i]; if (v === "ok") ok++; else if (v === "bad") bad++; });
+    el.innerHTML = ok + bad === 0 ? "아직 안 봄"
+      : "<b>맞음 " + ok + "</b>" + (bad ? " · <i>딴 물건 " + bad + "</i>" : "") +
+        (ok + bad < pairs.length ? " · 남음 " + (pairs.length - ok - bad) : " · 끝");
+  }
+
+  // ── 판정 클릭 ───────────────────────────────────────
+  document.getElementById("list").addEventListener("click", function (e) {
+    // ① 사진 몸통 = 맞음↔딴 물건 토글
+    var t = e.target.closest("button[data-t]");
+    if (t) {
+      var a = t.dataset.t.split(":"), it = findItem(+a[0]);
+      if (!it) return;
+      var p = it.ph[+a[1]];
+      V.photo[p.i] = nextMark(V.photo[p.i]);
+      save(); repaint(p.i); paintDone(it);
+      if (lb.open && lbItem && lbItem.id === it.id) renderLB();
+      return;
+    }
+    // ② 돋보기 = 크게 보기
+    var z = e.target.closest("button[data-p]");
+    if (z) { var b = z.dataset.p.split(":"); openLB(+b[0], +b[1]); return; }
+    // ③ 품목 전부 맞음
+    var pa = e.target.closest("button[data-pass]");
+    if (pa) {
+      var it2 = findItem(+pa.dataset.pass);
+      if (it2) {
+        shownPairs(it2).forEach(function (pk) { V.photo[pk[0].i] = "ok"; repaint(pk[0].i); });
+        save(); paintDone(it2);
+      }
+      return;
+    }
+    // ④ 묶음 전부 맞음
+    var pg = e.target.closest("button[data-passg]");
+    if (pg) {
+      var key = pg.dataset.passg, br = key.slice(0, key.indexOf("/")), cn = key.slice(key.indexOf("/") + 1);
+      var brand = D.brands.filter(function (x) { return x.b === br; })[0];
+      var grp = brand && brand.cats.filter(function (x) { return x.c === cn; })[0];
+      if (grp) {
+        grp.it.filter(itemPasses).forEach(function (i2) {
+          shownPairs(i2).forEach(function (pk) { V.photo[pk[0].i] = "ok"; repaint(pk[0].i); });
+          paintDone(i2);
+        });
+        save();
+      }
+      return;
+    }
+    var g = e.target.closest("button[data-g]");
+    if (g) { V.group[g.dataset.g] = V.group[g.dataset.g] === g.dataset.v ? "" : g.dataset.v; save(); drawList(); return; }
+    var x = e.target.closest("button[data-x]");
+    if (x) { expand[x.dataset.x] = !expand[x.dataset.x]; drawList(); return; }
+  });
+
+  // ── 크게 보기 ───────────────────────────────────────
+  // lbPairs = 지금 화면에 보이는 사진만 (감춘 3D 렌더로 화살표가 넘어가면 안 된다).
+  // lbPos = 그 안에서의 위치. 칸 번호는 여전히 it.ph 기준을 쓴다.
+  var lb = document.getElementById("lb"), lbItem = null, lbPairs = [], lbPos = 0;
+
+  function findItem(id) { return ITEM_AT[id] || null; }
+
+  function openLB(id, k) {
+    lbItem = findItem(id); if (!lbItem) return;
+    lbPairs = shownPairs(lbItem);
+    lbPos = Math.max(0, lbPairs.findIndex(function (pk) { return pk[1] === k; }));
+    renderLB();
+    if (!lb.open) lb.showModal();
+  }
+
+  function renderLB() {
+    if (!lbPairs.length) return;
+    var p = lbPairs[lbPos][0];
+    document.getElementById("lbName").textContent = lbItem.n;
+    document.getElementById("lbSub").textContent =
+      SRCNAME[p.s] + (p.d ? " · " + p.d : "") + "　·　" + (lbPos + 1) + "/" + lbPairs.length +
+      (p.t ? "　·　정확도 시험용" : "") + (p.e ? "　·　검색에 쓰임" : "　·　검색에 안 쓰임");
+    document.getElementById("lbImg").src = D.base + encodeURI(p.p);
+    var a = document.getElementById("lbSrc");
+    if (p.u) { a.href = p.u; a.textContent = "원본 페이지 열기 ↗"; a.style.display = ""; } else { a.style.display = "none"; }
+    var mk = V.photo[p.i] || "";
+    document.getElementById("bOk").setAttribute("aria-pressed", mk === "ok");
+    document.getElementById("bBad").setAttribute("aria-pressed", mk === "bad");
+    document.getElementById("lbSide").innerHTML =
+      lbPairs.map(function (pk) { return sideThumbHTML(lbItem, pk[0], pk[1]); }).join("");
+  }
+
+  document.getElementById("lbSide").addEventListener("click", function (e) {
+    var t = e.target.closest("button[data-p]");
+    if (!t) return;
+    var k = +t.dataset.p.split(":")[1];
+    var i = lbPairs.findIndex(function (pk) { return pk[1] === k; });
+    if (i >= 0) { lbPos = i; renderLB(); }
+  });
+
+  function mark(v) {
+    if (!lbPairs.length) return;
+    var p = lbPairs[lbPos][0];
+    if (V.photo[p.i] === v) delete V.photo[p.i]; else V.photo[p.i] = v;
+    save(); repaint(p.i); paintDone(lbItem); renderLB();
+    if (V.photo[p.i] && lbPos < lbPairs.length - 1) { lbPos++; renderLB(); }
+  }
+  document.getElementById("bOk").onclick = function () { mark("ok"); };
+  document.getElementById("bBad").onclick = function () { mark("bad"); };
+  document.getElementById("lbClose").onclick = function () { lb.close(); };
+
+  document.addEventListener("keydown", function (e) {
+    if (!lb.open) return;
+    if (e.key === "1") { mark("ok"); e.preventDefault(); }
+    else if (e.key === "2") { mark("bad"); e.preventDefault(); }
+    else if (e.key === "ArrowRight" && lbPos < lbPairs.length - 1) { lbPos++; renderLB(); }
+    else if (e.key === "ArrowLeft" && lbPos > 0) { lbPos--; renderLB(); }
+    // dialog 는 Esc 를 스스로 닫지만, 명시해 둬야 어느 브라우저에서든 같게 동작한다.
+    else if (e.key === "Escape") { lb.close(); e.preventDefault(); }
+  });
+
+  // ── 도구 모음 ───────────────────────────────────────
+  function chip(id, k, redrawSide) {
+    var el = document.getElementById(id);
+    el.onclick = function () {
+      filt[k] = !filt[k];
+      el.setAttribute("aria-pressed", filt[k]);
+      if (redrawSide) drawSide();
+      drawList(); drawProgress();
+    };
+  }
+  chip("fFreq", "freq", true); chip("fWeb", "web", true);
+  chip("fTodo", "todo"); chip("fRender", "render"); chip("fNone", "none");
+  var qT = null;
+  document.getElementById("q").oninput = function (e) {
+    clearTimeout(qT);
+    var v = e.target.value.trim().toLowerCase();
+    qT = setTimeout(function () { filt.q = v; drawList(); }, 180);
+  };
+
+  document.getElementById("dl").onclick = function () {
+    var rows = [];
+    D.brands.forEach(function (b) {
+      b.cats.forEach(function (g) {
+        g.it.forEach(function (it) {
+          it.ph.forEach(function (p) {
+            if (V.photo[p.i]) rows.push({ photo_id: p.i, part_id: it.id, part: it.n, brand: b.b, cat: g.c, source: SRCNAME[p.s], origin: p.u, verdict: V.photo[p.i] });
+          });
+        });
+      });
+    });
+    var out = { 만든날: new Date().toISOString().slice(0, 10), 사진판정: rows, 묶음판정: V.group };
+    var blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "사진검수-" + out.만든날 + ".json";
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  var helpBox = document.getElementById("help");
+  if (localStorage.getItem(KEY + "_help") === "off") helpBox.style.display = "none";
+  document.getElementById("helpClose").onclick = function () { helpBox.style.display = "none"; localStorage.setItem(KEY + "_help", "off"); };
+  document.getElementById("helpBtn").onclick = function () { helpBox.style.display = helpBox.style.display === "none" ? "" : "none"; };
+
+  drawSide(); drawList(); drawProgress();
+})();
+</script>
+</body>
+</html>
