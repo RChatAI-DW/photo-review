@@ -306,9 +306,34 @@
     if (micTrack) micTrack.enabled = on;
   }
 
+  var endCallPending=false, endCallTimer=null, sawAudioThisResponse=false;
+
   async function handleCall(call){
     var args={}; try{ args=JSON.parse(call.arguments||"{}"); }catch(e){}
     var out="";
+
+    if (call.name==="end_call"){
+      // 손님이 "끊어줘" — 인사는 이 도구 호출과 같은 응답에서 이미 나왔다(지시문 15).
+      // ☠️ **function_call_output을 반드시 보낸다.** 안 보내면 서버가 '툴 호출 대기' 상태로
+      //    남아 output_audio_buffer.stopped를 영영 보내지 않는다(OpenAI 알려진 버그 —
+      //    2026-08-13 리뷰에서 확인). 그러면 8초 타이머만이 유일 경로가 되어 인사가 잘리거나
+      //    긴 무음이 생긴다. response.create는 보내지 않으므로 모델은 다시 말하지 않는다.
+      log("tool","통화 종료 요청","손님이 통화를 끝내 달라고 함 — 인사 후 자동 종료");
+      endCallPending=true;
+      send({type:"conversation.item.create",item:{type:"function_call_output",
+            call_id:call.call_id,output:"ok"}});
+      status("종료 인사 중…","on");
+      // 인사 오디오가 아예 없었으면(모델이 도구만 부른 경우) 기다릴 이유가 없다.
+      // 이 응답에서 오디오가 나온 적이 있으면 stopped를 기다리고, 아니면 곧바로 끊는다.
+      if (!sawAudioThisResponse){
+        setTimeout(function(){ stop(); status("통화 종료 — 손님 요청",""); },200);
+        return;
+      }
+      // 오디오 종료 이벤트가 늦거나 안 오는 환경 대비 상한(인사 절단 방지로 15초)
+      if (endCallTimer) clearTimeout(endCallTimer);
+      endCallTimer=setTimeout(function(){ stop(); status("통화 종료 — 손님 요청",""); },15000);
+      return;
+    }
 
     if (call.name==="request_callback"){
       log("tool","전화 요청 접수", (args.name||"?")+" / "+(args.phone||"?")+
@@ -327,6 +352,17 @@
       send({type:"conversation.item.create",item:{type:"function_call_output",call_id:call.call_id,output:out}});
       send({type:"response.create"});
       status("통화 중","live");
+      return;
+    }
+
+    // ☠️ 미지 도구 가드 — 서버가 새 도구를 추가했는데 이 화면이 구버전이면, 아래 검색 분기로
+    //    흘러내려 **빈 쿼리로 검색을 때리고 response.create까지 보내 모델이 다시 말한다**
+    //    (2026-08-13 실측: Pages 사본이 end_call을 몰라 이 사고가 났다).
+    //    답만 돌려주고 재발화는 시키지 않는다.
+    if (call.name!=="search_parts"){
+      log("tool","미지 도구", call.name+" — 이 화면이 모르는 도구라 넘어감");
+      send({type:"conversation.item.create",item:{type:"function_call_output",
+            call_id:call.call_id,output:"ok"}});
       return;
     }
 
@@ -360,6 +396,28 @@
   function onEvent(e){
     var m; try{ m=JSON.parse(e.data); }catch(err){ return; }
     ev(m.type);
+
+    // 이 응답에서 소리가 나온 적이 있는가 — 인사 없이 도구만 온 경우를 가리는 근거
+    if (m.type==="output_audio_buffer.started") sawAudioThisResponse=true;
+    if (m.type==="response.created") sawAudioThisResponse=false;
+
+    // 손님이 종료 대기 중 다시 말하면 종료를 철회한다 ("아니요 아직요")
+    if (endCallPending && (m.type==="input_audio_buffer.speech_started"
+                           || m.type==="output_audio_buffer.cleared")){
+      if (endCallTimer){ clearTimeout(endCallTimer); endCallTimer=null; }
+      endCallPending=false;
+      log("tool","통화 종료 철회","손님이 다시 말함");
+      status("통화 중","live");
+      return;
+    }
+
+    // 통화 종료 도구가 불린 뒤 — 마지막 인사 오디오가 다 나가면 닫는다
+    if (endCallPending && m.type==="output_audio_buffer.stopped"){
+      if (endCallTimer){ clearTimeout(endCallTimer); endCallTimer=null; }
+      endCallPending=false;
+      setTimeout(function(){ stop(); status("통화 종료 — 손님 요청",""); },300);
+      return;
+    }
 
     if (m.type==="input_audio_buffer.speech_stopped"){
       speechStopAt=performance.now(); awaiting=true; return;
@@ -486,6 +544,8 @@
     dc=pc.createDataChannel("oai-events");
     dc.addEventListener("message",onEvent);
     dc.addEventListener("open",function(){
+      endCallPending=false;
+      if (endCallTimer){ clearTimeout(endCallTimer); endCallTimer=null; }
       status("통화 중 — 말씀하세요","live");
       $("stop").disabled=false;
       note($("mode").value==="half"
@@ -527,10 +587,15 @@
   }
 
   function stop(){
+    // ☠️ 종료 타이머를 여기서 반드시 죽인다. 안 그러면 수동 [끊기] 뒤 곧바로 새 통화를 걸었을 때
+    //    살아남은 타이머가 연결 도중에 stop()을 다시 불러 마이크가 죽은 통화가 붙는다(리뷰 지적).
+    if (endCallTimer){ clearTimeout(endCallTimer); endCallTimer=null; }
+    endCallPending=false; sawAudioThisResponse=false;
     if (reenableTimer) clearTimeout(reenableTimer);
     if (dc){ try{dc.close();}catch(e){} dc=null; }
     if (pc){ try{pc.close();}catch(e){} pc=null; }
     if (micStream){ micStream.getTracks().forEach(function(t){t.stop();}); micStream=null; micTrack=null; }
+    if (audioEl){ try{ audioEl.pause(); audioEl.srcObject=null; }catch(e){} }
     $("go").disabled=false; $("stop").disabled=true; status("끊김");
   }
 
