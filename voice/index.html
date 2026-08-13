@@ -275,13 +275,35 @@
   }
 
   async function handleCall(call){
-    toolCount++; $("tool-n").textContent=toolCount;
     var args={}; try{ args=JSON.parse(call.arguments||"{}"); }catch(e){}
+    var out="";
+
+    if (call.name==="request_callback"){
+      log("tool","전화 요청 접수", (args.name||"?")+" / "+(args.phone||"?")+
+          (args.model_no? " / "+args.model_no : ""));
+      status("접수 중…","on");
+      try{
+        var cr=await api("?r=callback",{
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ name:args.name, phone:args.phone, message:args.message,
+                                model_no:args.model_no, session_id:chatSessionId })
+        });
+        var cj=await cr.json();
+        out=cj.text||cj.error||"접수 결과를 알 수 없습니다.";
+      }catch(e){ out="접수 실패: "+(e&&e.message?e.message:String(e)); }
+      log("tool","접수 결과", out);
+      send({type:"conversation.item.create",item:{type:"function_call_output",call_id:call.call_id,output:out}});
+      send({type:"response.create"});
+      status("통화 중","live");
+      return;
+    }
+
+    toolCount++; $("tool-n").textContent=toolCount;
     var q=args.query||"";
     log("tool","검색 호출",q);
     status("검색 중…","on");
 
-    var out="검색 실패";
+    out="검색 실패";
     try{
       var r=await api("?r=search",{
         method:"POST",
