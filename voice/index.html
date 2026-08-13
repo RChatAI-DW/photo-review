@@ -317,7 +317,7 @@
     log("tool","검색 호출",q);
     status("검색 중…","on");
 
-    out="검색 실패";
+    out="검색 실패"; var shown="검색 실패";
     try{
       var r=await api("?r=search",{
         method:"POST",
@@ -326,10 +326,11 @@
       });
       var j=await r.json();
       if (j.session_id) chatSessionId=j.session_id;
-      out=j.text||j.error||"결과 없음";
-    }catch(e){ out="검색 실패: "+(e&&e.message?e.message:String(e)); }
+      out=j.text||j.error||"결과 없음";            // 모델에게 줄 것 — 품번이 한글 읽기
+      shown=j.display||out;                        // 사람이 볼 것 — 품번 원본
+    }catch(e){ out="검색 실패: "+(e&&e.message?e.message:String(e)); shown=out; }
 
-    log("tool","검색 결과", out.length>320? out.slice(0,320)+" …" : out);
+    log("tool","검색 결과", shown.length>320? shown.slice(0,320)+" …" : shown);
     send({type:"conversation.item.create",item:{type:"function_call_output",call_id:call.call_id,output:out}});
     send({type:"response.create"});
     status("통화 중","live");
