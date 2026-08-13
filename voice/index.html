@@ -250,6 +250,24 @@
 
   function $(id){ return document.getElementById(id); }
 
+  // 자막 되살리기 — 모델은 한글 읽기를 말하지만 화면엔 원본이 보여야 한다.
+  // 역변환은 코드로 못 한다("이"가 E인지 2인지 모른다). 그래서 검색할 때
+  // 서버가 넘겨준 짝을 모아 두고, 그 짝으로만 되돌린다.
+  var pnMap=[];
+  function addMap(m){
+    if (!m || !m.length) return;
+    for (var i=0;i<m.length;i++) pnMap.push(m[i]);
+    pnMap.sort(function(a,b){ return b[0].length-a[0].length; });  // 긴 것부터
+    if (pnMap.length>200) pnMap.length=200;
+  }
+  function unspeak(s){
+    if (!s) return s;
+    for (var i=0;i<pnMap.length;i++){
+      if (s.indexOf(pnMap[i][0])>=0) s=s.split(pnMap[i][0]).join(pnMap[i][1]);
+    }
+    return s;
+  }
+
   function passcode(){
     var t = localStorage.getItem("voice_token");
     if (!t) {
@@ -326,6 +344,7 @@
       });
       var j=await r.json();
       if (j.session_id) chatSessionId=j.session_id;
+      addMap(j.map);
       out=j.text||j.error||"결과 없음";            // 모델에게 줄 것 — 품번이 한글 읽기
       shown=j.display||out;                        // 사람이 볼 것 — 품번 원본
     }catch(e){ out="검색 실패: "+(e&&e.message?e.message:String(e)); shown=out; }
@@ -370,7 +389,7 @@
     }
 
     if (/^response\.(output_)?audio_transcript\.done$/.test(m.type)){
-      var a=(m.transcript||"").trim(); if(a) log("app","앱이 말한 것",a);
+      var a=(m.transcript||"").trim(); if(a) log("app","앱이 말한 것",unspeak(a));
       return;
     }
 
