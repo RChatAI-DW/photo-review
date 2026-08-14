@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>댄포스 자주 팔리는 부품 — 카테고리별 사진 확인</title>
+<title>댄포스 자주 팔리는 부품 — 사진 검수</title>
 <style>
   :root{
     --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --ink:#16191d; --dim:#6b7280;
@@ -13,344 +13,419 @@
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;-webkit-text-size-adjust:100%}
-  header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:10px 14px}
-  h1{margin:0 0 2px;font-size:17px}
-  .sub{color:var(--dim);font-size:12.5px}
-  .bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;white-space:nowrap}
-  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .chip.dim{color:var(--dim)}
-  .prog{height:6px;background:#eceff3;border-radius:99px;overflow:hidden;margin-top:9px}
-  .prog>i{display:block;height:100%;background:var(--ok);width:0}
-  main{padding:12px 14px 80px;max-width:1100px;margin:0 auto}
-  .sec{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden}
-  .sec.done{opacity:.55}
-  .sechd{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center;cursor:pointer}
-  .sechd h2{margin:0;font-size:15.5px;flex:1 1 240px;min-width:0}
-  .tag{font-size:11.5px;padding:2px 8px;border-radius:99px;white-space:nowrap;font-weight:600}
+  header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:9px 14px}
+  .htop{display:flex;gap:10px;align-items:center}
+  h1{margin:0;font-size:15px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .modes{display:flex;gap:4px}
+  .modes button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:12.5px;cursor:pointer}
+  .modes button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .prog{height:6px;background:#eceff3;border-radius:99px;overflow:hidden;margin-top:8px}
+  .prog>i{display:block;height:100%;background:var(--ok);width:0;transition:width .2s}
+  .pnum{font-size:12px;color:var(--dim);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap}
+
+  /* ── 집중 검수 ───────────────────────────────── */
+  .focus{max-width:1000px;margin:0 auto;padding:14px 14px 130px}
+  .qcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .qhd{padding:12px 15px;border-bottom:1px solid var(--line)}
+  .qkind{font-size:12px;color:var(--dim);margin-bottom:2px}
+  .qtitle{font-size:19px;font-weight:700;line-height:1.35}
+  .qsub{font-size:12.5px;color:var(--dim);margin-top:4px}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .side{padding:12px 14px}
+  .side+.side{border-left:1px solid var(--line)}
+  .slab{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;display:inline-block;margin-bottom:6px}
+  .slab.a{background:var(--bluebg);color:var(--blue)}
+  .slab.b{background:var(--okbg);color:var(--ok)}
+  .sname{font-size:13.5px;font-weight:600;margin-bottom:8px;word-break:break-word}
+  .pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+  .pics img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px;cursor:zoom-in}
+  .pics.solo{grid-template-columns:1fr}
+  .nopic{color:var(--dim);font-size:13px;padding:22px 0;text-align:center;background:#fafbfc;border:1px dashed var(--line);border-radius:10px}
+  .single{padding:12px 14px}
+  .ans{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:25}
+  .ansin{max-width:1000px;margin:0 auto;display:flex;gap:8px}
+  .ansin button{flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:14px 8px;font-size:15px;font-weight:600;cursor:pointer;line-height:1.3}
+  .ansin button small{display:block;font-weight:400;font-size:11px;color:var(--dim);margin-top:2px}
+  .ansin button.y{border-color:var(--ok);color:var(--ok)} .ansin button.y.on{background:var(--ok);color:#fff}
+  .ansin button.n{border-color:var(--no);color:var(--no)} .ansin button.n.on{background:var(--no);color:#fff}
+  .ansin button.w{border-color:var(--warn);color:var(--warn)} .ansin button.w.on{background:var(--warn);color:#fff}
+  .ansin button.s{flex:0 0 74px;color:var(--dim)}
+  .ansin button.on small{color:#fff9}
+  .nav{display:flex;gap:8px;justify-content:space-between;margin-top:11px}
+  .nav button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer}
+  .done{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 18px;text-align:center}
+  .done h2{margin:0 0 6px;font-size:18px}
+  .done p{color:var(--dim);font-size:13.5px;margin:0 0 14px}
+  .big{background:var(--ok);color:#fff;border:0;border-radius:10px;padding:12px 20px;font-size:15px;cursor:pointer}
+
+  /* ── 전체 목록 ───────────────────────────────── */
+  main.list{padding:12px 14px 90px;max-width:1100px;margin:0 auto}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .sechd{padding:11px 13px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;cursor:pointer}
+  .sechd h2{margin:0;font-size:15px;flex:1 1 220px;min-width:0}
+  .tag{font-size:11.5px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap}
   .t-ok{background:var(--okbg);color:var(--ok)} .t-thin{background:var(--warnbg);color:var(--warn)}
   .t-mfr{background:var(--bluebg);color:var(--blue)} .t-none{background:var(--nobg);color:var(--no)}
   .t-nodb{background:#e5e7eb;color:#374151}
   .cnt{font-size:12px;color:var(--dim);white-space:nowrap}
-  .body{padding:11px 13px 14px;display:none}
+  .body{padding:0 13px 12px;display:none;border-top:1px solid var(--line)}
   .sec.open .body{display:block}
-  .part{border-top:1px dashed var(--line);padding:10px 0 4px}
-  .part:first-child{border-top:0;padding-top:2px}
-  .pname{font-size:13.5px;font-weight:600;margin:0 0 6px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .part{padding:9px 0 2px;border-top:1px dashed var(--line)}
+  .part:first-child{border-top:0}
+  .pname{font-size:13px;font-weight:600;margin:8px 0 6px}
   .pmeta{font-weight:400;color:var(--dim);font-size:11.5px}
-  .strip{display:flex;gap:7px;overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch}
-  figure{margin:0;position:relative;flex:0 0 auto}
-  figure img{width:104px;height:104px;object-fit:contain;background:#fff;border:2px solid var(--line);border-radius:9px;display:block;cursor:pointer}
-  figure.y img{border-color:var(--ok);background:#f0fdf4}
-  figure.n img{border-color:var(--no);background:#fef2f2}
-  figure .k{position:absolute;left:3px;bottom:8px;font-size:10px;padding:1px 5px;border-radius:5px;background:#111c;color:#fff}
-  figure.mfr .k{background:#1d4ed8cc} figure.draw .k{background:#6b7280cc} figure.field .k{background:#15803dcc}
-  figure .z{position:absolute;right:3px;top:3px;background:#111c;color:#fff;border:0;border-radius:6px;font-size:11px;padding:2px 5px;cursor:pointer}
-  .mark{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:34px;font-weight:800;pointer-events:none}
-  figure.y .mark{color:#15803d} figure.n .mark{color:#b91c1c}
-  .btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
-  button.act{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
-  button.act.on{background:var(--ok);border-color:var(--ok);color:#fff}
-  button.act.warn.on{background:var(--warn);border-color:var(--warn)}
-  button.act.no.on{background:var(--no);border-color:var(--no)}
-  .cand{background:#fbfcfe;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px}
-  .cand h3{margin:0 0 3px;font-size:13px}
-  .why{font-size:11.5px;color:var(--dim);margin:0 0 6px}
-  .items{margin-top:9px;font-size:12px;color:#374151}
-  .items details summary{cursor:pointer;color:var(--dim);font-size:12px}
-  .items table{border-collapse:collapse;margin-top:6px;width:100%}
-  .items td{border-top:1px solid var(--line);padding:3px 6px;vertical-align:top}
-  .items td.c{color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
-  .none{color:var(--no);font-weight:600}
-  .empty{color:var(--dim);font-size:13px;padding:6px 0}
-  footer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:8px 14px;display:flex;gap:8px;align-items:center;z-index:20}
-  footer .g{flex:1;font-size:12px;color:var(--dim)}
-  #lb{position:fixed;inset:0;background:#000e;z-index:50;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+  .strip{display:flex;gap:7px;overflow-x:auto;padding-bottom:5px}
+  .strip img{width:82px;height:82px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;flex:0 0 auto;cursor:zoom-in}
+  .more{flex:0 0 auto;align-self:center;font-size:12px;color:var(--blue);background:none;border:0;cursor:pointer}
+  .empty{color:var(--dim);font-size:13px;padding:8px 0}
+  .verdict{font-size:12px;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .v-y{background:var(--okbg);color:var(--ok)} .v-n{background:var(--nobg);color:var(--no)} .v-w{background:var(--warnbg);color:var(--warn)}
+
+  #lb{position:fixed;inset:0;background:#000e;z-index:60;display:none;align-items:center;justify-content:center}
   #lb.on{display:flex}
-  #lb img{max-width:94vw;max-height:74vh;object-fit:contain;background:#fff;border-radius:8px}
-  #lb .lbtn{display:flex;gap:8px}
-  #lb button{border:0;border-radius:9px;padding:10px 16px;font-size:15px;cursor:pointer}
-  #lb .cap{color:#fff;font-size:13px}
-  .help{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
-  .help>b{display:block;margin-bottom:3px}
-  .help ul{margin:4px 0 0;padding-left:18px} .help li{margin:2px 0}
+  #lb img{max-width:96vw;max-height:92vh;object-fit:contain;background:#fff;border-radius:8px}
+  @media (max-width:700px){
+    .cmp{grid-template-columns:1fr}
+    .side+.side{border-left:0;border-top:1px solid var(--line)}
+    .qtitle{font-size:17px}
+    /* 폰에서는 답 버튼 3개가 한 줄에 안 들어간다 — 3개를 한 줄, [건너뜀]은 아래 얇은 줄로 */
+    .ansin{flex-wrap:wrap;gap:6px}
+    .ansin button{font-size:13.5px;padding:11px 4px;flex:1 1 0;min-width:0}
+    .ansin button small{font-size:10.5px}
+    .ansin button.s{flex:1 0 100%;padding:7px;font-size:12.5px;font-weight:400}
+    .ansin button.s small{display:inline;margin:0 0 0 4px}
+    /* 사진은 크게 봐야 갈린다 — 폰에서는 두 칸 */
+    .pics{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>댄포스 자주 팔리는 부품 — 카테고리별 사진 확인</h1>
-  <div class="sub" id="sub">불러오는 중…</div>
-  <div class="bar" id="filters"></div>
+  <div class="htop">
+    <h1 id="h1">댄포스 부품 사진 검수</h1>
+    <div class="modes">
+      <button id="mFocus" class="on">한 건씩</button>
+      <button id="mList">전체 목록</button>
+    </div>
+  </div>
   <div class="prog"><i id="pbar"></i></div>
+  <div class="pnum" id="pnum"></div>
 </header>
 
-<main>
-  <div class="help" id="help">
-    <b>보시는 법</b>
-    <ul>
-      <li><b>사진을 누르면</b> 초록 ✓(맞음) ↔ 빨강 ✕(딴 물건)으로 바뀝니다. 잘못 눌렀으면 한 번 더.</li>
-      <li>딱지 색: <span style="color:#15803d;font-weight:600">초록=손님 계통 사진</span>(알옥션·웹) ·
-          <span style="color:#1d4ed8;font-weight:600">파랑=제조사 스튜디오</span> ·
-          회색=3D 도면. <b>초록이 있어야 검색이 맞기 시작합니다.</b></li>
-      <li>칸마다 <b>[이 칸 사진 다 맞음]</b> 또는 <b>[촬영 필요]</b>를 눌러 주세요.</li>
-      <li>맨 아래 <b>[판정 내보내기]</b>를 눌러 나온 파일을 저에게 주시면 됩니다. 중간에 닫으셔도 기록은 남습니다.</li>
-    </ul>
-  </div>
-  <div id="list"></div>
-</main>
-
-<footer>
-  <div class="g" id="gauge"></div>
-  <button class="act" id="expall">전부 펼치기</button>
-  <button class="act" id="save">판정 내보내기</button>
-</footer>
-
-<div id="lb">
-  <img id="lbimg" alt="">
-  <div class="cap" id="lbcap"></div>
-  <div class="lbtn">
-    <button style="background:#15803d;color:#fff" data-v="y">맞음 (1)</button>
-    <button style="background:#b91c1c;color:#fff" data-v="n">딴 물건 (2)</button>
-    <button style="background:#fff" data-v="x">닫기 (Esc)</button>
-  </div>
-</div>
+<div class="focus" id="focus"></div>
+<main class="list" id="list" style="display:none"></main>
+<div class="ans" id="ans" style="display:none"><div class="ansin" id="ansin"></div></div>
+<div id="lb"><img id="lbimg" alt=""></div>
 
 <script src="data.js"></script>
 <script>
 (function(){
-  var D = window.DATA, KEY = "danfoss-parts-review-v1";
-  var V = { photo:{}, sec:{}, cand:{} };
+  var D = window.DATA, KEY = "danfoss-parts-review-v2";
+  var V = { pair:{}, sec:{}, pos:0 };
   try { var s = localStorage.getItem(KEY); if (s) V = Object.assign(V, JSON.parse(s)); } catch(e){}
-  var saveT; function save(){ clearTimeout(saveT); saveT = setTimeout(function(){
+  var t; function save(){ clearTimeout(t); t = setTimeout(function(){
     try { localStorage.setItem(KEY, JSON.stringify(V)); } catch(e){}
-  }, 200); }
+  }, 150); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]; }); }
 
-  var STATE = {
-    ok:{label:"사진 있음", cls:"t-ok"}, thin:{label:"사진 1~2장", cls:"t-thin"},
-    mfr:{label:"제조사 사진만", cls:"t-mfr"}, none:{label:"사진 없음", cls:"t-none"},
-    nodb:{label:"DB에 물건 없음", cls:"t-nodb"}
-  };
-  var F = { state:"all", draw:false, todo:false };
-
-  var filters = document.getElementById("filters");
-  function mkchip(txt, on, fn, dim){
-    var b = document.createElement("button");
-    b.className = "chip" + (on?" on":"") + (dim?" dim":""); b.textContent = txt;
-    b.onclick = fn; filters.appendChild(b); return b;
-  }
-  function cntState(st){ return D.sections.filter(function(s){return s.state===st}).length }
-  function drawFilters(){
-    filters.innerHTML = "";
-    mkchip("전체 "+D.sections.length, F.state==="all", function(){ F.state="all"; render(); });
-    ["nodb","none","mfr","thin","ok"].forEach(function(st){
-      var n = cntState(st); if (!n) return;
-      mkchip(STATE[st].label+" "+n, F.state===st, function(){ F.state=st; render(); });
+  // ── 판정 대기열 ──────────────────────────────────────────────
+  // 짝 판정을 먼저 놓는다: 이게 사진을 늘리는 유일하게 값싼 길이고, 답이 "예/아니오" 하나라
+  // 눈으로 가장 빨리 끝난다. 칸 확인은 그다음.
+  // 순서: ①양쪽 사진이 다 있는 짝(눈으로 바로 갈린다) → ②우리 쪽 사진이 없는 짝(이름으로 판단)
+  //       → ③칸 확인. 어려운 것을 앞에 두면 첫 화면에서 막힌다.
+  var Q = [], qEasy = [], qHard = [];
+  D.sections.forEach(function(s){
+    var hasRef = (s.parts||[]).some(function(p){ return p.photos.some(function(x){ return x.k!=="draw" }) });
+    (s.cands||[]).forEach(function(c){
+      (hasRef ? qEasy : qHard).push({ t:"pair", key:s.sec+"|"+c.pid, sec:s, cand:c, ref:hasRef });
     });
-    mkchip(F.todo?"아직 안 본 칸만 ✓":"아직 안 본 칸만", F.todo, function(){ F.todo=!F.todo; render(); }, true);
-    mkchip(F.draw?"3D 도면 보임 ✓":"3D 도면 보기", F.draw, function(){ F.draw=!F.draw; render(); }, true);
+  });
+  Q = qEasy.concat(qHard);
+  D.sections.forEach(function(s){ Q.push({ t:"sec", key:s.sec, sec:s }); });
+
+  var nPair = Q.filter(function(q){return q.t==="pair"}).length;
+  var nSec  = Q.length - nPair;
+  function ansOf(q){ return q.t==="pair" ? V.pair[q.key] : V.sec[q.key]; }
+  function doneCount(){ return Q.filter(function(q){ return !!ansOf(q) }).length; }
+
+  // 그 칸이 "어떤 물건인지" 보여줄 우리 쪽 사진 — 제조사 실사 우선, 없으면 도면
+  function refPics(sec, n){
+    var all = [];
+    (sec.parts||[]).forEach(function(p){ all = all.concat(p.photos.map(function(x){ return {p:p,x:x} })); });
+    var mfr  = all.filter(function(o){ return o.x.k==="mfr" });
+    var fld  = all.filter(function(o){ return o.x.k==="field" });
+    var draw = all.filter(function(o){ return o.x.k==="draw" });
+    return fld.concat(mfr, draw).slice(0, n||4);
+  }
+  function refName(sec){
+    var p = (sec.parts||[])[0];
+    return p ? p.name : "";
   }
 
-  function secDone(sec){ return !!V.sec[sec.sec] }
-  function visible(){
-    return D.sections.filter(function(s){
-      if (F.state!=="all" && s.state!==F.state) return false;
-      if (F.todo && secDone(s)) return false;
-      return true;
+  function picsEl(list, solo){
+    var d = document.createElement("div");
+    d.className = "pics" + (solo?" solo":"");
+    list.forEach(function(o){
+      var im = document.createElement("img");
+      im.src = o.u || o.x.u; im.loading = "lazy"; im.alt = "";
+      im.onclick = function(){ lbimg.src = im.src; lb.classList.add("on"); };
+      im.onerror = function(){ im.style.display = "none"; };
+      d.appendChild(im);
     });
-  }
-
-  function photoEl(ph, title){
-    var f = document.createElement("figure");
-    f.className = ph.k + (V.photo[ph.i]==="y"?" y":V.photo[ph.i]==="n"?" n":"");
-    var img = document.createElement("img");
-    img.src = ph.u; img.loading = "lazy"; img.alt = title;
-    img.onerror = function(){ f.style.display="none"; };
-    img.onclick = function(){
-      var cur = V.photo[ph.i];
-      V.photo[ph.i] = cur==="y" ? "n" : cur==="n" ? "" : "y";
-      if (!V.photo[ph.i]) delete V.photo[ph.i];
-      f.className = ph.k + (V.photo[ph.i]==="y"?" y":V.photo[ph.i]==="n"?" n":"");
-      mark.textContent = V.photo[ph.i]==="y"?"✓":V.photo[ph.i]==="n"?"✕":"";
-      save(); gauge();
-    };
-    var k = document.createElement("span"); k.className="k";
-    k.textContent = ph.k==="field" ? (ph.c?"현장·검색중":"현장") : ph.k==="mfr" ? "제조사" : "도면";
-    var z = document.createElement("button"); z.className="z"; z.textContent="⤢";
-    z.onclick = function(e){ e.stopPropagation(); openLb(ph, title, f, mark); };
-    var mark = document.createElement("span"); mark.className="mark";
-    mark.textContent = V.photo[ph.i]==="y"?"✓":V.photo[ph.i]==="n"?"✕":"";
-    f.appendChild(img); f.appendChild(k); f.appendChild(z); f.appendChild(mark);
-    return f;
-  }
-
-  function strip(photos, title){
-    var d = document.createElement("div"); d.className="strip";
-    var shown = photos.filter(function(p){ return F.draw || p.k!=="draw" });
-    if (!shown.length){ var e=document.createElement("div"); e.className="empty";
-      e.textContent = photos.length ? "3D 도면만 있습니다 (위 ‘3D 도면 보기’를 켜면 보입니다)" : "사진 없음";
-      d.appendChild(e); return d; }
-    shown.forEach(function(p){ d.appendChild(photoEl(p, title)); });
     return d;
   }
 
-  function actBtn(label, key, kind){
-    var b = document.createElement("button");
-    b.className = "act" + (kind?" "+kind:"") + (V.sec[key.s]===key.v ? " on":"");
-    b.textContent = label;
-    b.onclick = function(){
-      V.sec[key.s] = (V.sec[key.s]===key.v) ? "" : key.v;
-      if (!V.sec[key.s]) delete V.sec[key.s];
-      render(); gauge(); save();
-    };
-    return b;
+  // ── 한 건씩 화면 ─────────────────────────────────────────────
+  var focus = document.getElementById("focus"), ans = document.getElementById("ans"), ansin = document.getElementById("ansin");
+  var lb = document.getElementById("lb"), lbimg = document.getElementById("lbimg");
+  lb.onclick = function(){ lb.classList.remove("on"); };
+
+  function drawFocus(){
+    if (V.pos >= Q.length){ drawDone(); return; }
+    var q = Q[V.pos];
+    focus.innerHTML = ""; ans.style.display = "block";
+    var card = document.createElement("div"); card.className = "qcard";
+    var hd = document.createElement("div"); hd.className = "qhd";
+
+    if (q.t === "pair"){
+      hd.innerHTML = '<div class="qkind">짝 확인 · '
+        + (q.ref ? '이 둘이 같은 물건인가요?' : '오른쪽 제품이 이 칸의 물건인가요?') + '</div>'
+        + '<div class="qtitle">' + esc(q.sec.sec) + '</div>'
+        + '<div class="qsub">맞으면 오른쪽 사진 ' + q.cand.total.field + '장을 이 칸에 끌어다 씁니다. 촬영이 그만큼 줄어듭니다.</div>';
+      card.appendChild(hd);
+      var cmp = document.createElement("div"); cmp.className = "cmp";
+      var A = document.createElement("div"); A.className = "side";
+      var refs = refPics(q.sec, 4);
+      A.innerHTML = '<span class="slab a">이 칸의 물건 (카탈로그)</span>'
+        + '<div class="sname">' + esc(refName(q.sec) || "(등록된 제품 없음)") + '</div>';
+      A.appendChild(refs.length ? picsEl(refs) : nopic("이 칸에는 우리 쪽 사진이 없습니다. 아래 품목 이름과 견주어 보세요."));
+      if (!refs.length){
+        var ex = document.createElement("div"); ex.className = "qsub";
+        ex.textContent = "품목 예: " + q.sec.items.slice(0,4).map(function(i){return i.model}).filter(Boolean).join(", ");
+        A.appendChild(ex);
+      }
+      var B = document.createElement("div"); B.className = "side";
+      B.innerHTML = '<span class="slab b">알옥션(자사몰)에 있는 제품</span>'
+        + '<div class="sname">' + esc(q.cand.name) + '</div>';
+      B.appendChild(picsEl(q.cand.photos.filter(function(p){return p.k!=="draw"}).slice(0,4)));
+      cmp.appendChild(A); cmp.appendChild(B); card.appendChild(cmp);
+      focus.appendChild(card);
+      buttons([
+        ["같은 물건이다", "사진을 끌어다 씁니다", "y", "y"],
+        ["아니다 — 딴 물건", "잇지 않습니다", "n", "n"],
+        ["모르겠다", "나중에 다시", "w", "?"]
+      ], q);
+    } else {
+      var st = { ok:"사진 있음", thin:"사진 1~2장", mfr:"제조사 사진만", none:"사진 없음", nodb:"DB에 물건 없음" }[q.sec.state];
+      hd.innerHTML = '<div class="qkind">칸 확인 · 이 칸 사진, 쓸 만한가요?</div>'
+        + '<div class="qtitle">' + esc(q.sec.sec) + '</div>'
+        + '<div class="qsub">' + st + ' · 품목 ' + q.sec.n + '개'
+        + (q.sec.linked < q.sec.n ? ' (DB연결 ' + q.sec.linked + ')' : '')
+        + ' · 손님계통 ' + q.sec.tot.field + '장 / 제조사 ' + q.sec.tot.mfr + '장 / 도면 ' + q.sec.tot.draw + '장</div>';
+      card.appendChild(hd);
+      var one = document.createElement("div"); one.className = "single";
+      var pics = refPics(q.sec, 8);
+      if (pics.length) one.appendChild(picsEl(pics));
+      else one.appendChild(nopic(q.sec.linked===0
+        ? "이 칸의 품목은 DB에 등록된 제품이 없습니다 — 사진 이전에 제품 수집이 필요합니다."
+        : "사진이 없습니다."));
+      var names = (q.sec.parts||[]).map(function(p){return p.name}).join(" · ");
+      if (names){ var nm = document.createElement("div"); nm.className="qsub"; nm.style.marginTop="9px";
+        nm.textContent = "제품: " + names; one.appendChild(nm); }
+      var it = document.createElement("div"); it.className="qsub"; it.style.marginTop="6px";
+      it.textContent = "품목 예: " + q.sec.items.slice(0,6).map(function(i){return i.model}).filter(Boolean).join(", ")
+        + (q.sec.n>6 ? " 외 " + (q.sec.n-6) + "개" : "");
+      one.appendChild(it);
+      card.appendChild(one); focus.appendChild(card);
+      buttons([
+        ["쓸 만하다", "이 칸은 넘어갑니다", "y", "ok"],
+        ["사진 부족 — 찍어야 함", "촬영 목록에 넣습니다", "w", "shoot"],
+        ["딴 물건이 섞임", "사진을 걸러냅니다", "n", "bad"]
+      ], q);
+    }
+    gauge();
+    window.scrollTo(0,0);
   }
 
-  function render(){
-    drawFilters();
-    var list = document.getElementById("list"); list.innerHTML = "";
-    var rows = visible();
-    if (!rows.length){ list.innerHTML = '<div class="empty">해당하는 칸이 없습니다.</div>'; gauge(); return; }
-    rows.forEach(function(sec){
-      var el = document.createElement("section");
-      el.className = "sec" + (secDone(sec)?" done":"") + (sec.__open?" open":"");
-      var hd = document.createElement("div"); hd.className="sechd";
-      var h2 = document.createElement("h2"); h2.textContent = sec.sec;
-      var tag = document.createElement("span"); tag.className="tag "+STATE[sec.state].cls; tag.textContent=STATE[sec.state].label;
-      var cnt = document.createElement("span"); cnt.className="cnt";
-      cnt.textContent = "품목 "+sec.n+(sec.linked<sec.n?" (DB연결 "+sec.linked+")":"")
-        + " · 현장 "+sec.tot.field+" 제조사 "+sec.tot.mfr+" 도면 "+sec.tot.draw;
-      hd.appendChild(h2); hd.appendChild(tag); hd.appendChild(cnt);
-      hd.onclick = function(){ sec.__open = !sec.__open; render(); };
-      el.appendChild(hd);
+  function nopic(msg){
+    var d = document.createElement("div"); d.className="nopic"; d.textContent = msg; return d;
+  }
 
-      var body = document.createElement("div"); body.className="body";
-
-      if (!sec.parts.length){
-        var e = document.createElement("div"); e.className="empty none";
-        e.textContent = sec.linked===0
-          ? "이 칸의 품목은 DB에 등록된 제품이 없습니다 — 사진 이전에 제품 수집이 필요합니다."
-          : "연결된 제품에 사진이 없습니다.";
-        body.appendChild(e);
-      }
-      sec.parts.forEach(function(p){
-        var d = document.createElement("div"); d.className="part";
-        var t = document.createElement("div"); t.className="pname";
-        t.innerHTML = '<span>'+esc(p.name)+'</span><span class="pmeta">'+esc(p.brand)
-          +(p.cat?" · "+esc(p.cat):"")+" · 사진 "+p.total.field+"/"+p.total.mfr+"/"+p.total.draw+"</span>";
-        d.appendChild(t); d.appendChild(strip(p.photos, p.name));
-        body.appendChild(d);
-      });
-
-      if (sec.cands && sec.cands.length){
-        sec.cands.forEach(function(c){
-          var box = document.createElement("div"); box.className="cand";
-          var h3 = document.createElement("h3"); h3.textContent = "❓ 같은 물건인가요? — " + c.name;
-          var why = document.createElement("p"); why.className="why";
-          why.textContent = "알옥션(자사몰)에 따로 등록된 제품입니다. 같은 물건이면 이 사진들을 위 칸에 끌어다 쓸 수 있습니다."
-            + (c.why? "  기계가 짝지은 근거: "+c.why : "");
-          box.appendChild(h3); box.appendChild(why);
-          box.appendChild(strip(c.photos, c.name));
-          var bs = document.createElement("div"); bs.className="btns";
-          var key = sec.sec+"|"+c.pid;
-          [["같은 물건 맞음","y",""],["아님 — 딴 물건","n","no"]].forEach(function(o){
-            var b = document.createElement("button");
-            b.className = "act "+o[2]+(V.cand[key]===o[1]?" on":"");
-            b.textContent = o[0];
-            b.onclick = function(){
-              V.cand[key] = V.cand[key]===o[1] ? "" : o[1];
-              if(!V.cand[key]) delete V.cand[key];
-              render(); gauge(); save();
-            };
-            bs.appendChild(b);
-          });
-          box.appendChild(bs);
-          body.appendChild(box);
-        });
-      }
-
-      var bs = document.createElement("div"); bs.className="btns";
-      bs.appendChild(actBtn("이 칸 사진 다 맞음", {s:sec.sec, v:"ok"}));
-      bs.appendChild(actBtn("사진 부족 — 촬영 필요", {s:sec.sec, v:"shoot"}, "warn"));
-      bs.appendChild(actBtn("딴 물건이 섞임", {s:sec.sec, v:"bad"}, "no"));
-      body.appendChild(bs);
-
-      var it = document.createElement("div"); it.className="items";
-      var det = document.createElement("details");
-      var sm = document.createElement("summary"); sm.textContent = "이 칸의 품목 "+sec.n+"개 보기";
-      det.appendChild(sm);
-      var tb = document.createElement("table");
-      sec.items.forEach(function(i){
-        var tr = document.createElement("tr");
-        tr.innerHTML = '<td class="c">'+esc(i.code)+'</td><td>'+esc(i.model)
-          + (i.note? ' <span class="pmeta">'+esc(i.note)+'</span>':'')
-          + (i.pid==null? ' <span class="none">· DB에 없음</span>':'') + '</td>';
-        tb.appendChild(tr);
-      });
-      det.appendChild(tb); it.appendChild(det); body.appendChild(it);
-
-      el.appendChild(body); list.appendChild(el);
+  function buttons(defs, q){
+    ansin.innerHTML = "";
+    var cur = ansOf(q);
+    defs.forEach(function(d, i){
+      var b = document.createElement("button");
+      b.className = d[2] + (cur === d[3] ? " on" : "");
+      b.innerHTML = esc(d[0]) + "<small>" + esc(d[1]) + " (" + (i+1) + ")</small>";
+      b.onclick = function(){ answer(q, d[3]); };
+      ansin.appendChild(b);
     });
+    var sk = document.createElement("button"); sk.className = "s";
+    sk.innerHTML = "건너뜀<small>→</small>";
+    sk.onclick = function(){ V.pos++; save(); drawFocus(); };
+    ansin.appendChild(sk);
+
+    var nav = document.createElement("div"); nav.className = "nav";
+    var back = document.createElement("button"); back.textContent = "← 이전";
+    back.onclick = function(){ if (V.pos>0){ V.pos--; save(); drawFocus(); } };
+    var skipAll = document.createElement("button");
+    skipAll.textContent = q.t==="pair" ? "짝 확인 건너뛰고 칸 확인부터 →" : "남은 것 보기";
+    skipAll.onclick = function(){ V.pos = q.t==="pair" ? nPair : V.pos+1; save(); drawFocus(); };
+    nav.appendChild(back); nav.appendChild(skipAll);
+    focus.appendChild(nav);
+  }
+
+  function answer(q, v){
+    if (q.t==="pair"){ V.pair[q.key] = v; } else { V.sec[q.key] = v; }
+    save(); V.pos++;
+    drawFocus();
+  }
+
+  function drawDone(){
+    ans.style.display = "none";
+    var left = Q.filter(function(q){ return !ansOf(q) }).length;
+    focus.innerHTML = "";
+    var d = document.createElement("div"); d.className = "done";
+    d.innerHTML = "<h2>" + (left ? "여기까지 보셨습니다" : "다 보셨습니다 🎉") + "</h2>"
+      + "<p>판정 " + doneCount() + "건 / 전체 " + Q.length + "건"
+      + (left ? " · 건너뛴 것 " + left + "건이 남아 있습니다." : "") + "</p>";
+    var b1 = document.createElement("button"); b1.className="big"; b1.textContent="판정 내보내기";
+    b1.onclick = exportJson; d.appendChild(b1);
+    if (left){
+      var b2 = document.createElement("button"); b2.className="big";
+      b2.style.background="#fff"; b2.style.color="var(--ink)"; b2.style.border="1px solid var(--line)";
+      b2.style.marginLeft="8px"; b2.textContent="건너뛴 것 다시 보기";
+      b2.onclick = function(){
+        for (var i=0;i<Q.length;i++) if (!ansOf(Q[i])){ V.pos=i; save(); drawFocus(); return; }
+      };
+      d.appendChild(b2);
+    }
+    var b3 = document.createElement("button"); b3.className="big";
+    b3.style.background="#fff"; b3.style.color="var(--ink)"; b3.style.border="1px solid var(--line)";
+    b3.style.marginLeft="8px"; b3.textContent="처음부터 다시";
+    b3.onclick = function(){ V.pos=0; save(); drawFocus(); };
+    d.appendChild(b3);
+    focus.appendChild(d);
     gauge();
   }
 
   function gauge(){
-    var done = D.sections.filter(secDone).length;
-    var pc = Math.round(done / D.sections.length * 100);
-    document.getElementById("pbar").style.width = pc + "%";
-    var np = Object.keys(V.photo).length, nc = Object.keys(V.cand).length;
-    document.getElementById("gauge").textContent =
-      "칸 " + done + "/" + D.sections.length + " (" + pc + "%) · 사진 판정 " + np + "장 · 짝 판정 " + nc + "건";
+    var dp = Q.filter(function(q){ return q.t==="pair" && ansOf(q) }).length;
+    var ds = Q.filter(function(q){ return q.t==="sec" && ansOf(q) }).length;
+    document.getElementById("pbar").style.width = Math.round(doneCount()/Q.length*100) + "%";
+    document.getElementById("pnum").innerHTML =
+      "<span>짝 확인 " + dp + "/" + nPair + "</span><span>칸 확인 " + ds + "/" + nSec + "</span>"
+      + (V.pos < Q.length ? "<span>지금 " + (V.pos+1) + "번째</span>" : "");
   }
 
-  // 크게 보기
-  var lb = document.getElementById("lb"), lbimg = document.getElementById("lbimg"), lbcap = document.getElementById("lbcap");
-  var lbCur = null;
-  function openLb(ph, title, fig, mark){
-    lbCur = { ph:ph, fig:fig, mark:mark };
-    lbimg.src = ph.u; lbcap.textContent = title + " — " + (ph.k==="field"?"손님 계통(알옥션·웹)":ph.k==="mfr"?"제조사 스튜디오":"3D 도면");
-    lb.classList.add("on");
-  }
-  function setLb(v){
-    if (!lbCur) return;
-    if (v==="x"){ lb.classList.remove("on"); lbCur=null; return; }
-    V.photo[lbCur.ph.i] = v; save();
-    lbCur.fig.className = lbCur.ph.k + " " + v;
-    lbCur.mark.textContent = v==="y"?"✓":"✕";
-    gauge(); lb.classList.remove("on"); lbCur=null;
-  }
-  lb.querySelectorAll("button").forEach(function(b){ b.onclick = function(){ setLb(b.dataset.v); }; });
-  lb.onclick = function(e){ if (e.target===lb) setLb("x"); };
   document.onkeydown = function(e){
-    if (!lb.classList.contains("on")) return;
-    if (e.key==="1") setLb("y"); else if (e.key==="2") setLb("n"); else if (e.key==="Escape") setLb("x");
+    if (lb.classList.contains("on")){ lb.classList.remove("on"); return; }
+    if (document.getElementById("focus").style.display === "none") return;
+    if (V.pos >= Q.length) return;
+    var q = Q[V.pos];
+    if (e.key==="1"||e.key==="2"||e.key==="3"){
+      var map = q.t==="pair" ? ["y","n","?"] : ["ok","shoot","bad"];
+      answer(q, map[+e.key-1]);
+    } else if (e.key==="ArrowRight"){ V.pos++; save(); drawFocus(); }
+    else if (e.key==="ArrowLeft"){ if (V.pos>0){ V.pos--; save(); drawFocus(); } }
   };
 
-  document.getElementById("expall").onclick = function(){
-    var open = D.sections.some(function(s){ return !s.__open });
-    D.sections.forEach(function(s){ s.__open = open; });
-    this.textContent = open ? "전부 접기" : "전부 펼치기";
-    render();
-  };
+  // ── 전체 목록 (훑어보기용 — 사진은 6장까지만 펼친다) ──────────
+  var STATE = { ok:["사진 있음","t-ok"], thin:["사진 1~2장","t-thin"], mfr:["제조사 사진만","t-mfr"],
+                none:["사진 없음","t-none"], nodb:["DB에 물건 없음","t-nodb"] };
+  function drawList(){
+    var list = document.getElementById("list"); list.innerHTML = "";
+    D.sections.forEach(function(sec){
+      var el = document.createElement("section"); el.className = "sec" + (sec.__open?" open":"");
+      var hd = document.createElement("div"); hd.className="sechd";
+      var v = V.sec[sec.sec];
+      hd.innerHTML = '<h2>' + esc(sec.sec) + '</h2>'
+        + '<span class="tag ' + STATE[sec.state][1] + '">' + STATE[sec.state][0] + '</span>'
+        + (v ? '<span class="verdict ' + (v==="ok"?"v-y":v==="shoot"?"v-w":"v-n") + '">'
+             + (v==="ok"?"쓸 만함":v==="shoot"?"촬영 필요":"딴 물건 섞임") + '</span>' : '')
+        + '<span class="cnt">품목 ' + sec.n + ' · 손님계통 ' + sec.tot.field + ' / 제조사 ' + sec.tot.mfr + ' / 도면 ' + sec.tot.draw + '</span>';
+      hd.onclick = function(){ sec.__open = !sec.__open; drawList(); };
+      el.appendChild(hd);
+      var body = document.createElement("div"); body.className="body";
+      if (!sec.parts.length) body.appendChild(nopic(sec.linked===0 ? "DB에 등록된 제품이 없습니다." : "사진이 없습니다."));
+      sec.parts.forEach(function(p){
+        var d = document.createElement("div"); d.className="part";
+        var t2 = document.createElement("div"); t2.className="pname";
+        t2.innerHTML = esc(p.name) + ' <span class="pmeta">손님계통 ' + p.total.field + ' · 제조사 ' + p.total.mfr + ' · 도면 ' + p.total.draw + '</span>';
+        d.appendChild(t2);
+        var shown = p.photos.filter(function(x){ return x.k!=="draw" });
+        d.appendChild(stripEl(shown, p.__more));
+        if (shown.length > 6 && !p.__more){
+          var mb = document.createElement("button"); mb.className="more";
+          mb.textContent = "+" + (shown.length-6) + "장 더";
+          mb.onclick = function(){ p.__more = true; drawList(); };
+          d.lastChild.appendChild(mb);
+        }
+        body.appendChild(d);
+      });
+      if (sec.cands && sec.cands.length){
+        sec.cands.forEach(function(c){
+          var d = document.createElement("div"); d.className="part";
+          var vv = V.pair[sec.sec+"|"+c.pid];
+          d.innerHTML = '<div class="pname">❓ 짝 후보: ' + esc(c.name)
+            + (vv ? ' <span class="verdict ' + (vv==="y"?"v-y":vv==="n"?"v-n":"v-w") + '">'
+                  + (vv==="y"?"같은 물건":vv==="n"?"딴 물건":"모르겠음") + '</span>' : '') + '</div>';
+          d.appendChild(stripEl(c.photos.filter(function(x){ return x.k!=="draw" }), true));
+          body.appendChild(d);
+        });
+      }
+      el.appendChild(body); list.appendChild(el);
+    });
+  }
+  function stripEl(photos, all){
+    var d = document.createElement("div"); d.className="strip";
+    if (!photos.length){ var e=document.createElement("span"); e.className="empty"; e.textContent="(사진 없음 · 도면 제외)"; d.appendChild(e); return d; }
+    photos.slice(0, all?999:6).forEach(function(p){
+      var im = document.createElement("img"); im.src=p.u; im.loading="lazy"; im.alt="";
+      im.onclick = function(){ lbimg.src=p.u; lb.classList.add("on"); };
+      im.onerror = function(){ im.style.display="none"; };
+      d.appendChild(im);
+    });
+    return d;
+  }
 
-  document.getElementById("save").onclick = function(){
-    var out = { 만든날: new Date().toISOString().slice(0,10), 데이터날짜: D.만든날, 칸판정:{}, 짝판정:{}, 사진판정:{} };
-    D.sections.forEach(function(s){ if (V.sec[s.sec]) out.칸판정[s.sec] = ({ok:"사진 다 맞음",shoot:"촬영 필요",bad:"딴 물건 섞임"})[V.sec[s.sec]]; });
-    Object.keys(V.cand).forEach(function(k){ out.짝판정[k] = V.cand[k]==="y"?"같은 물건":"딴 물건"; });
-    Object.keys(V.photo).forEach(function(k){ out.사진판정[k] = V.photo[k]==="y"?"맞음":"딴 물건"; });
-    var blob = new Blob([JSON.stringify(out, null, 1)], { type:"application/json" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "부품검수-" + out.만든날 + ".json";
-    a.click(); URL.revokeObjectURL(a.href);
-  };
+  // ── 내보내기 ────────────────────────────────────────────────
+  function exportJson(){
+    var out = { 만든날:new Date().toISOString().slice(0,10), 자료날짜:D.만든날,
+                짝판정:{}, 칸판정:{}, 요약:{} };
+    Q.forEach(function(q){
+      var a = ansOf(q); if (!a) return;
+      if (q.t==="pair") out.짝판정[q.key] = a==="y"?"같은 물건":a==="n"?"딴 물건":"모르겠음";
+      else out.칸판정[q.key] = a==="ok"?"쓸 만함":a==="shoot"?"촬영 필요":"딴 물건 섞임";
+    });
+    out.요약 = {
+      같은물건: Object.values(out.짝판정).filter(function(x){return x==="같은 물건"}).length,
+      딴물건: Object.values(out.짝판정).filter(function(x){return x==="딴 물건"}).length,
+      촬영필요칸: Object.values(out.칸판정).filter(function(x){return x==="촬영 필요"}).length,
+      판정: doneCount(), 전체: Q.length
+    };
+    var blob = new Blob([JSON.stringify(out,null,1)], {type:"application/json"});
+    var a2 = document.createElement("a");
+    a2.href = URL.createObjectURL(blob); a2.download = "부품검수-" + out.만든날 + ".json";
+    a2.click(); URL.revokeObjectURL(a2.href);
+  }
 
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){
-    return ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" })[c]; }); }
+  // ── 모드 전환 ───────────────────────────────────────────────
+  var mF = document.getElementById("mFocus"), mL = document.getElementById("mList");
+  function setMode(f){
+    mF.classList.toggle("on", f); mL.classList.toggle("on", !f);
+    document.getElementById("focus").style.display = f ? "block" : "none";
+    document.getElementById("list").style.display = f ? "none" : "block";
+    ans.style.display = f && V.pos < Q.length ? "block" : "none";
+    if (f) drawFocus(); else drawList();
+  }
+  mF.onclick = function(){ setMode(true); };
+  mL.onclick = function(){ setMode(false); };
 
-  document.getElementById("sub").textContent =
-    "가격표 " + D.칸수 + "칸 · 품목 " + D.품목수 + "개(DB연결 " + D.연결됨 + ") · 자료 " + D.만든날;
-  // 주소 끝에 #all 을 붙이면 전부 펼친 채로 열린다 (링크로 바로 보여줄 때 씀)
-  if (location.hash === "#all") D.sections.forEach(function(s){ s.__open = true; });
-  render();
+  document.getElementById("h1").textContent = "댄포스 부품 사진 검수 · 판정 " + Q.length + "건";
+  setMode(true);
 })();
 </script>
 </body>
