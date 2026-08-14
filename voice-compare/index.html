@@ -94,9 +94,9 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">국내 TTS vs OpenAI</p>
+    <p class="eyebrow">통화 목소리 고르기</p>
     <h1>목소리 비교</h1>
-    <p class="lede">같은 문장을 두 엔진으로 읽혀 나란히 듣습니다. <b>품번과 금액을 어떻게 읽는지</b>가 핵심입니다.</p>
+    <p class="lede">통화에 쓸 수 있는 <b>10개를 같은 문장으로</b> 들어 보고 고릅니다. 국내 TTS(타입캐스트)와도 견줄 수 있습니다.</p>
   </header>
 
   <div class="card">
@@ -115,15 +115,21 @@
         <label class="lbl" for="oav">OpenAI 목소리</label>
         <select id="oav">
           <option value="marin">marin (지금 쓰는 것)</option>
+          <option value="cedar">cedar</option>
           <option value="coral">coral</option>
           <option value="sage">sage</option>
           <option value="shimmer">shimmer</option>
-          <option value="cedar">cedar</option>
+          <option value="alloy">alloy</option>
+          <option value="ash">ash</option>
+          <option value="ballad">ballad</option>
+          <option value="echo">echo</option>
+          <option value="verse">verse</option>
         </select>
       </div>
     </div>
     <div class="row">
-      <button class="play" id="go">둘 다 들어보기</button>
+      <button class="play" id="goAll">OpenAI 10개 전부 듣기</button>
+      <button class="play" id="go" style="background:transparent;color:var(--accent)">고른 것 둘만</button>
       <button class="play" id="goTc" style="background:transparent;color:var(--accent)">타입캐스트만</button>
     </div>
   </div>
@@ -131,7 +137,13 @@
   <div class="results" id="results"></div>
 
   <div class="tips">
-    <b>들으실 때 이것만 보십시오</b>
+    <b>⚠️ 여기서 들리는 소리와 실제 통화가 완전히 같지는 않습니다</b>
+    <p style="margin:6px 0 0">이 화면은 <b>읽어주기(TTS) 모델</b>로 합성합니다. 실제 통화는
+    <b>실시간 대화 모델</b>이라 같은 이름이어도 억양이 조금 다릅니다.
+    여기서 2~3개로 좁힌 뒤, 그것만 실제 통화로 마지막 확인을 하시는 게 정확합니다.</p>
+    <p style="margin:6px 0 0"><b>10개 전부 듣기</b>는 합성을 10번 하므로 20~30초쯤 걸립니다.</p>
+
+    <b style="display:block;margin-top:12px">들으실 때 이것만 보십시오</b>
     <ul>
       <li><b>품번</b> — <code>060G3631</code>을 또박또박 읽는가, 뭉개거나 다르게 읽는가</li>
       <li><b>금액</b> — <code>131,670원</code>을 한 덩이로 읽는가, 쉼표에서 끊는가</li>
@@ -149,6 +161,8 @@
   var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqbHpma25hZXp3d3l1c2RyZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MjAwODEsImV4cCI6MjEwMTM5NjA4MX0.q8g2wFBP_ideMcGgtgKeFwwxBdIG7ajpcv6RJxJbO9s";
 
   var PRESETS = [
+    ["교포 발음 판별", "댄포스 필터 드라이어 DML-165 플레어입니다. 가격은 만 사천오백이십 원이고 재고 있습니다."],
+    ["외래어 모음", "컴프레샤와 콘덴서, 에바포레이터 상태를 먼저 확인해 보시겠어요?"],
     ["가격+재고", "060G3631, 131,670원입니다. 재고는 입고 문의가 필요합니다."],
     ["변별쌍",   "7755007과 7755017은 다른 제품입니다. 어느 쪽을 찾으십니까?"],
     ["영문 품번", "비쳐 HSN5343-20은 가격문의 품목입니다. 확인 후 안내드리겠습니다."],
@@ -249,6 +263,21 @@
     var s = $("tcv");
     return s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent : "?";
   }
+
+  var OA_ALL = ["marin","cedar","coral","sage","shimmer","alloy","ash","ballad","echo","verse"];
+
+  $("goAll").addEventListener("click", async function () {
+    var t = $("text").value.trim(); if (!t) return;
+    var btns = [this, $("go"), $("goTc")];
+    btns.forEach(function (b) { b.disabled = true; });
+    var self = this, label = self.textContent;
+    for (var i = 0; i < OA_ALL.length; i++) {
+      self.textContent = "듣는 중 " + (i + 1) + "/" + OA_ALL.length + " — " + OA_ALL[i];
+      await speak("openai", OA_ALL[i], OA_ALL[i], t);
+    }
+    self.textContent = label;
+    btns.forEach(function (b) { b.disabled = false; });
+  });
 
   $("go").addEventListener("click", async function () {
     var t = $("text").value.trim(); if (!t) return;
