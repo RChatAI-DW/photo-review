@@ -152,6 +152,10 @@
   .vhead .pr small{font-weight:400;color:var(--dim);font-size:10.5px}
   .vhead .pr .nop{color:var(--no);font-size:12px;font-weight:600}
   .vbody{display:none;background:#fafbfc;border-top:1px dashed var(--line);padding:12px 14px}
+  .vph{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+  .vph .pi{position:relative}
+  .vph img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:8px;cursor:zoom-in}
+  .vph .pk{position:absolute;left:4px;top:4px;font-size:9px;padding:1px 5px;border-radius:99px;font-weight:700}
   .vrow.open .vbody{display:block}
   .vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
   .vsec h4{margin:0 0 6px;font-size:12px;color:var(--dim)}
@@ -272,6 +276,12 @@ const pctCls = (a, b) => { if (!b) return ""; const p = a / b; return p < .5 ? "
 const DOCICON = { catalog: "📗", manual: "📘", datasheet: "📄", drawing: "📐", certificate: "📜", pricelist: "💰", etc: "📎" };
 const DOCNAME = { catalog: "카탈로그", manual: "매뉴얼", datasheet: "데이터시트", drawing: "도면", certificate: "인증서", pricelist: "가격표", etc: "기타 자료" };
 const KIND = { field: ["현장", "t-ok"], mfr: ["제조사", "t-blue"], draw: ["도면", "t-gray"], det: ["상세", "t-vio"] };
+// 댄포스가 스스로 매긴 시각자료 분류(0073 visual_kind). "도면" 한 칸에 뭉쳐 있던 것들이 갈라진다.
+const VKIND = {
+  photo: "제품사진", render: "사실적 렌더", model3d: "3D 모델", dimension: "치수도면",
+  cad2d: "2D 도면", cutaway: "컷어웨이", instruction: "지시도", planview: "평면도",
+  diagram: "다이어그램", symbol: "아이콘·기호", drawing: "도면",
+};
 const BASIS = { consumer_list: "소비자가", unknown: "출처 불명" };
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
@@ -292,7 +302,7 @@ $("#pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#pw
 $("#pwGo").onclick = () => { const pw = $("#pwInput").value; if (pw) unlock({ pw, save: true }); };
 
 async function fetchBin() {
-  const r = await fetch("data.bin?v=msy9o4a0");
+  const r = await fetch("data.bin?v=msyunnpe");
   if (!r.ok) throw new Error("데이터 파일을 못 받았습니다 (HTTP " + r.status + ")");
   const total = +r.headers.get("content-length") || 0;
   if (!r.body || !total) return new Uint8Array(await r.arrayBuffer());
@@ -749,6 +759,14 @@ function openPart(pid) {
         ${v.tx ? `<div class="spectxt">${esc(v.tx)}</div>` : ""}
         ${v.ir ? `<div class="spectxt" style="margin-top:6px"><span class="hh">IR 가격표: </span>${esc(v.ir)}</div>` : ""}</div>` : ""}
       ${v.dp.length ? `<div class="vsec"><h4>문서에서 이 모델이 나오는 곳 (${v.dp.length})</h4><div class="dplinks">${dpLinks}</div></div>` : ""}
+      <div class="vsec"><h4>이 품번의 시각자료 (${v.ph.length})</h4>${
+        v.ph.length
+          ? `<div class="vph">` + v.ph.map(([u, k, vk, t], i) =>
+              `<div class="pi"><img loading="lazy" src="${esc(u)}" data-vi="${i}" data-vid="${v.id}" alt="${esc(t ?? "")}" title="${esc(t ?? "")}">
+                 <span class="pk ${KIND[k]?.[1] ?? "t-gray"}">${esc(VKIND[vk] ?? KIND[k]?.[0] ?? "")}</span></div>`).join("")
+            + `</div>`
+          : `<p style="color:var(--dim);font-size:12px;margin:0">댄포스 스토어에 이 품번용 시각자료가 없습니다. <span class="hh">(계열 사진을 대신 보여주지 않습니다)</span></p>`
+      }</div>
     </div>`;
   }
   function drawVs() {
@@ -763,6 +781,11 @@ function openPart(pid) {
       if (!row.querySelector(".vbody").innerHTML) {
         const v = sortedVs.find((x) => x.id === +row.dataset.vid);
         row.querySelector(".vbody").innerHTML = vBody(v);
+        // 이 품번 사진도 크게 볼 수 있게 — 목록은 그 품번 것만이라 계열 사진이 섞이지 않는다
+        row.querySelectorAll(".vph img").forEach((im) => im.onclick = (e) => {
+          e.stopPropagation();
+          openLB(v.ph.map(([u]) => u), +im.dataset.vi);
+        });
       }
       row.classList.add("open");
     }
