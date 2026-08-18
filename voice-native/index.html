@@ -103,7 +103,7 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">폰 내장 STT/TTS · Realtime 안 씀</p>
+    <p class="eyebrow">폰 내장 STT/TTS · Realtime 안 씀 · v2</p>
     <h1>내장 음성 시험대</h1>
   </header>
 
@@ -202,7 +202,13 @@
   var sessionId = null;
   var callId = "nat-" + Math.random().toString(36).slice(2, 10);
   var seq = 0;               // 겹침 큐 — 최신 요청만 채택한다(docs/36 작업 2)
-  var pending = "";          // 확정 자막 누적(말끝 디바운스용)
+  // ☠️ 자막을 **누적하지 않는다**. 안드로이드 STT는 한 발화를 점점 늘려가며 여러 번
+  //    확정해서(“내” → “내 말” → “내 말 듣고”), 이어붙이면 같은 말이 겹겹이 쌓인다
+  //    (대표님 실측 2026-08-18: "내 내 말 내 말 듣고 있어"). 그래서 이벤트마다
+  //    e.results 를 0번부터 통째로 다시 접는다.
+  var carry = "";            // 앞선 인식 세션에서 확정된 말 (재시작 루프 때문에 필요하다)
+  var sess = "";             // 이번 세션의 확정분 — 매 이벤트마다 통째로 갈아끼운다
+  var flushing = false;      // 보내는 중 — 인식기를 끊는 동안 들어오는 것은 무시한다
   var silenceTimer = null;
   var speakAt = 0;           // 말끝 시각
   var inFlight = 0;
@@ -277,6 +283,33 @@
   // ── 에코 판정 (2층) ─────────────────────────────────────────────────
   // 앱은 자기가 지금 무슨 말을 하는지 정확히 안다. 들어온 자막이 그 말과 겹치면 자기 목소리다.
   // ⚠️ 지금 조각만 보면 안 된다 — 전사는 늘 한 박자 늦어 **직전 조각**이 뒤늦게 도착한다.
+  // ── 결과 접기 — STT가 같은 말을 다시 말해도 한 번만 남긴다 ─────────
+  // 세 가지 꼴을 전부 받아낸다:
+  //   ㄱ. 이미 담긴 말 ("내 말" 뒤에 또 "내")        → 버린다
+  //   ㄴ. 앞말을 통째로 다시 말한 것 ("내" → "내 말")  → 갈아끼운다
+  //   ㄷ. 꼬리와 머리가 겹침 ("내 말 듣고"+"듣고 있어") → 겹친 만큼만 잇는다
+  function joinOverlap(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    var max = Math.min(a.length, b.length);
+    for (var k = max; k >= 2; k--) {
+      if (a.slice(a.length - k) === b.slice(0, k)) return a + b.slice(k);
+    }
+    return a + " " + b;
+  }
+  function foldResults(list) {
+    var out = "";
+    for (var i = 0; i < list.length; i++) {
+      var t = String(list[i] || "").replace(/\s+/g, " ").trim();
+      if (!t) continue;
+      var A = norm(out), B = norm(t);
+      if (B && A.indexOf(B) >= 0) continue;              // ㄱ
+      if (A && B.indexOf(A) === 0) { out = t; continue; } // ㄴ
+      out = joinOverlap(out, t);                          // ㄷ
+    }
+    return out.trim();
+  }
+
   function norm(s) { return String(s || "").replace(/[^0-9A-Za-z가-힣]/g, ""); }
   function bigrams(s) {
     var out = {}; for (var i = 0; i < s.length - 1; i++) out[s.slice(i, i + 2)] = 1; return out;
@@ -417,24 +450,36 @@
     rec.onstart = function () { ev("듣기 시작"); if (!speakingNow) status("듣고 있습니다", "live"); };
 
     rec.onresult = function (e) {
-      var fin = "", interim = "";
-      for (var i = e.resultIndex; i < e.results.length; i++) {
-        var t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += t; else interim += t;
+      if (flushing) return;   // 보낸 직후 딸려 오는 옛 결과 — 다시 세면 같은 말을 또 보낸다
+
+      // ☠️ e.resultIndex 부터 훑고 이어붙이면 안 된다. 0번부터 통째로 다시 읽고 접는다.
+      var finList = [], interimList = [];
+      for (var i = 0; i < e.results.length; i++) {
+        var alt = e.results[i][0];
+        if (!alt || !alt.transcript) continue;
+        if (e.results[i].isFinal) finList.push(alt.transcript);
+        else interimList.push(alt.transcript);
       }
-      var live = (fin || interim).trim();
+      var fin = foldResults(finList);
+      var interim = foldResults(interimList);
+      var live = (fin + " " + interim).replace(/\s+/g, " ").trim();
       if (!live) return;
+
+      // 새로 늘어난 부분만 — 판정은 방금 들어온 말로 해야 한다(누적분으로 하면 매번 걸린다)
+      var fresh = (fin.indexOf(sess) === 0 ? fin.slice(sess.length) : fin);
+      fresh = (fresh + " " + interim).replace(/\s+/g, " ").trim() || live;
 
       // 앱이 말하는 중이라면 — 에코인가, 맞장구인가, 진짜 끼어들기인가
       if (speakingNow || queue.length) {
-        if (isEcho(live)) {
-          mets.echo++; paintMets(); ev("에코 차단: " + live.slice(0, 24));
-          if (fin) { /* 확정 에코는 버린다 */ }
+        if (isEcho(fresh)) {
+          mets.echo++; paintMets(); ev("에코 차단: " + fresh.slice(0, 24));
+          sess = fin;              // 제 목소리는 담아만 두고 보내지 않는다
           paintHeard("", "");
           return;
         }
-        if (BACKCHANNEL.test(live) || norm(live).length < MIN_BARGE) {
-          mets.back++; paintMets(); ev("맞장구 무시: " + live.slice(0, 16));
+        if (BACKCHANNEL.test(fresh) || norm(fresh).length < MIN_BARGE) {
+          mets.back++; paintMets(); ev("맞장구 무시: " + fresh.slice(0, 16));
+          sess = fin;
           paintHeard("", "");
           return;
         }
@@ -442,17 +487,16 @@
           mets.cut++; paintMets();
           cutSpeech("손님이 끼어듦");
         } else {
-          ev("끼어들기 끔 — 무시: " + live.slice(0, 20));
+          ev("끼어들기 끔 — 무시: " + fresh.slice(0, 20));
+          sess = fin;
           paintHeard("", "");
           return;
         }
       }
 
-      if (fin) {
-        pending = (pending + " " + fin).trim();
-        speakAt = Date.now();
-      }
-      paintHeard(pending, interim);
+      if (fin !== sess) speakAt = Date.now();
+      sess = fin;                                   // ← 대입이다. 누적이 아니다.
+      paintHeard(joinOverlap(carry, sess), interim);
 
       // 말끝 디바운스 — 조각난 발화를 한 턴으로 합친다.
       // ☠️ 이게 없으면 "3마력이요… 어… R404A"가 두 턴으로 쪼개져 문진이 깨진다.
@@ -473,6 +517,10 @@
     // ☠️ 안드로이드 크롬은 continuous=true 여도 묵음이면 스스로 끝난다. iOS는 더 자주 끝난다.
     //    **재시작 루프가 핸즈프리의 전부다** — 이게 없으면 한 번 말하고 통화가 죽는다.
     rec.onend = function () {
+      // 보내고 나서 끊은 것이면 전부 비운다. 그게 아니면(묵음으로 저절로 끝난 것)
+      // 이번 세션의 확정분을 다음 세션으로 넘긴다 — 안 넘기면 말이 통째로 사라진다.
+      if (flushing) { flushing = false; carry = ""; sess = ""; }
+      else { carry = joinOverlap(carry, sess); sess = ""; }
       if (!running) { status("대기"); return; }
       setTimeout(function () { if (running) startRec(); }, 250);
     };
@@ -483,10 +531,14 @@
 
   function flushTurn() {
     silenceTimer = null;
-    var text = pending.trim();
-    pending = "";
+    var text = joinOverlap(carry, sess).replace(/\s+/g, " ").trim();
+    carry = ""; sess = "";
     paintHeard("", "");
     if (!text) return;
+    // ☠️ 보낸 뒤에는 인식기를 **한 번 끊는다**. 안 끊으면 e.results 에 방금 보낸 말이
+    //    그대로 남아, 다음 이벤트에서 통째로 다시 잡혀 같은 질문이 두 번 나간다.
+    flushing = true;
+    try { if (rec) rec.stop(); } catch (err) { flushing = false; }
     sendTurn(text);
   }
 
@@ -580,7 +632,7 @@
     running = true;
     sessionId = null;
     callId = "nat-" + Math.random().toString(36).slice(2, 10);
-    seq = 0; pending = ""; queue = []; speakingNow = ""; spokenWindow = []; endAfterSpeak = false;
+    seq = 0; carry = ""; sess = ""; flushing = false; queue = []; speakingNow = ""; spokenWindow = []; endAfterSpeak = false;
     mets = { turns: 0, echo: 0, back: 0, cut: 0, stale: 0 }; paintMets();
     $("log").innerHTML = "";
     $("go").disabled = true; $("stop").disabled = false;
@@ -604,7 +656,7 @@
     running = false;
     if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
     if (fillerTimer) { clearTimeout(fillerTimer); fillerTimer = null; }
-    queue = []; speakingNow = ""; pending = "";
+    queue = []; speakingNow = ""; carry = ""; sess = "";
     try { window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ }
     try { if (rec) rec.stop(); } catch (e) { /* 무시 */ }
     rec = null;
