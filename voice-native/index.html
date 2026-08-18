@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A6E7C">
+<title>폰 내장 음성 시험대 — RChatAI</title>
+<style>
+  :root {
+    --ground:#E9EDEF; --surface:#FBFCFC; --surface-2:#F1F5F6;
+    --ink:#0E1A20; --ink-soft:#55666F; --ink-faint:#8698A0;
+    --line:#CBD5D9; --line-soft:#DFE7EA;
+    --accent:#0A6E7C; --accent-soft:#D8ECEF;
+    --warn:#8A5A00; --warn-soft:#F6EBD2;
+    --miss:#B3261E; --miss-soft:#F7DEDC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0D1417; --surface:#141E22; --surface-2:#1A262B;
+      --ink:#E6EDEF; --ink-soft:#9BADB4; --ink-faint:#6C818A;
+      --line:#27373D; --line-soft:#1F2E33;
+      --accent:#4FBAC9; --accent-soft:#16333A;
+      --warn:#E0AC4E; --warn-soft:#33290F;
+      --miss:#F2867A; --miss-soft:#3A1C19;
+    }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;
+    font-size:16px; line-height:1.55;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap { max-width:760px; margin:0 auto; padding:16px 14px 40px; }
+
+  header { margin-bottom:14px; }
+  .eyebrow { font-size:10.5px; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
+  h1 { font-size:22px; font-weight:800; letter-spacing:-.02em; margin:0; }
+
+  .ctl { display:grid; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:14px; margin-bottom:12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button {
+    font:inherit; font-size:16px; font-weight:700;
+    background:var(--accent); color:var(--surface);
+    border:1px solid var(--accent); border-radius:4px; padding:14px 20px; cursor:pointer; flex:1 1 auto;
+    min-height:52px;
+  }
+  button.ghost { background:transparent; color:var(--ink-soft); border-color:var(--line); font-weight:600; flex:0 0 auto; }
+  button:disabled { opacity:.35; }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  select { font:inherit; font-size:14px; padding:9px 8px; border:1px solid var(--line); border-radius:4px; background:var(--surface-2); color:var(--ink); width:100%; }
+  .field { flex:1 1 150px; display:grid; gap:3px; }
+  .field span { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+  #status { font-size:14px; color:var(--ink-soft); display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--ink-faint); flex:0 0 auto; }
+  .dot.on { background:var(--warn); }
+  .dot.live { background:var(--miss); animation:pulse 1.4s infinite; }
+  .dot.say { background:var(--accent); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  @media (prefers-reduced-motion:reduce){ .dot.live{animation:none} }
+
+  .mets { display:grid; grid-template-columns:repeat(auto-fit,minmax(84px,1fr)); gap:8px; margin-bottom:12px; }
+  .met { background:var(--surface); border:1px solid var(--line-soft); border-radius:4px; padding:10px 11px; }
+  .met .k { font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); display:block; }
+  .met .v { font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:21px; font-weight:700; font-variant-numeric:tabular-nums; display:block; margin-top:1px; }
+  .met .v small { font-size:11px; font-weight:400; color:var(--ink-soft); }
+  .met.good .v { color:var(--accent); }
+  .met.bad .v { color:var(--miss); }
+  #note { font-size:12.5px; color:var(--ink-soft); margin:-4px 0 12px; min-height:18px; }
+  #note.bad { color:var(--miss); font-weight:600; }
+
+  #heard {
+    font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:13px; line-height:1.5;
+    color:var(--ink-soft); background:var(--surface); border:1px dashed var(--line);
+    border-radius:4px; padding:9px 11px; margin:-4px 0 12px; min-height:38px; word-break:break-word;
+  }
+  #heard b { color:var(--ink); font-weight:700; }
+
+  .panel { background:var(--surface); border:1px solid var(--line-soft); border-radius:4px; }
+  .panel h2 { font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin:0; padding:11px 14px; border-bottom:1px solid var(--line-soft); }
+  #log { padding:12px 14px; min-height:200px; max-height:52vh; overflow-y:auto; display:flex; flex-direction:column; gap:11px; }
+  .turn { display:grid; gap:3px; }
+  .who { font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+  .turn.user .who { color:var(--accent); }
+  .turn.app .who { color:var(--ink-faint); }
+  .turn.tool .who { color:var(--warn); }
+  .turn.err .who { color:var(--miss); }
+  .say { font-size:15px; }
+  .turn.user .say { font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:15px; background:var(--accent-soft); padding:9px 11px; border-radius:4px; word-break:break-word; }
+  .turn.tool .say { font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:12.5px; background:var(--warn-soft); padding:8px 10px; border-radius:4px; word-break:break-word; }
+  .turn.err .say { background:var(--miss-soft); padding:9px 11px; border-radius:4px; font-size:13.5px; word-break:break-word; }
+  .ms { font-size:11px; color:var(--ink-faint); font-family:"Cascadia Mono",Consolas,monospace; }
+
+  details { margin-top:14px; background:var(--surface); border:1px solid var(--line-soft); border-radius:4px; padding:12px 14px; }
+  summary { cursor:pointer; font-size:13px; font-weight:700; color:var(--ink-soft); }
+  details ol, details ul { margin:10px 0 0; padding-left:20px; font-size:14px; color:var(--ink-soft); }
+  details li { margin-bottom:6px; }
+  details b { color:var(--ink); }
+  #events { margin-top:10px; max-height:170px; overflow-y:auto; font-family:"Cascadia Mono",Consolas,monospace; font-size:10.5px; color:var(--ink-faint); display:flex; flex-direction:column; gap:1px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">폰 내장 STT/TTS · Realtime 안 씀</p>
+    <h1>내장 음성 시험대</h1>
+  </header>
+
+  <div class="ctl">
+    <div class="row">
+      <button id="go">통화 시작</button>
+      <button id="stop" class="ghost" disabled>끊기</button>
+    </div>
+    <div class="row">
+      <label class="field"><span>끼어들기</span>
+        <select id="barge">
+          <option value="on">켬 — 말하는 도중 끊을 수 있음</option>
+          <option value="off">끔 — 다 들은 뒤에만 말함</option>
+        </select>
+      </label>
+      <label class="field"><span>말끝 기다리기</span>
+        <select id="silence">
+          <option value="900">0.9초 — 권장</option>
+          <option value="600">0.6초 — 빠름, 말 자름</option>
+          <option value="1400">1.4초 — 느긋함</option>
+        </select>
+      </label>
+      <label class="field"><span>문장 사이 틈</span>
+        <select id="gap">
+          <option value="250">0.25초 — 권장</option>
+          <option value="0">없음 — 이어 읽기</option>
+          <option value="500">0.5초 — 끼어들기 쉬움</option>
+        </select>
+      </label>
+      <label class="field"><span>낭독 속도</span>
+        <select id="rate">
+          <option value="1">보통</option>
+          <option value="1.15">조금 빠르게</option>
+          <option value="0.9">조금 느리게</option>
+        </select>
+      </label>
+      <label class="field"><span>목소리</span>
+        <select id="voice"><option value="">기본</option></select>
+      </label>
+      <label class="field"><span>대기 멘트</span>
+        <select id="filler">
+          <option value="on">켬 — 찾는 동안 말해 줌</option>
+          <option value="off">끔 — 조용히 기다림</option>
+        </select>
+      </label>
+    </div>
+    <div id="status"><span class="dot" id="dot"></span><span id="stxt">대기</span></div>
+  </div>
+
+  <div class="mets">
+    <div class="met" id="m-lat"><span class="k">말끝→응답</span><span class="v" id="lat">—<small>ms</small></span></div>
+    <div class="met"><span class="k">턴</span><span class="v" id="turns">0</span></div>
+    <div class="met" id="m-echo"><span class="k">에코 차단</span><span class="v" id="echo">0</span></div>
+    <div class="met" id="m-back"><span class="k">맞장구 무시</span><span class="v" id="back">0</span></div>
+    <div class="met"><span class="k">끊고 들어옴</span><span class="v" id="cut">0</span></div>
+    <div class="met" id="m-stale"><span class="k">낡은 응답 버림</span><span class="v" id="stale">0</span></div>
+  </div>
+  <div id="heard">듣는 말이 여기 실시간으로 찍힙니다.</div>
+  <div id="note">스피커로 하십시오 — 자기 목소리를 걸러내는지가 이 시험의 핵심입니다.</div>
+
+  <div class="panel">
+    <h2>대화</h2>
+    <div id="log"></div>
+  </div>
+
+  <details>
+    <summary>무엇을 보는 시험인가</summary>
+    <ul>
+      <li><b>에코 차단</b>이 올라가면 자기 목소리를 제대로 걸러낸 것입니다. 여기가 0인데 앱이 자기 말에 대꾸하면 실패입니다.</li>
+      <li><b>맞장구 무시</b> — "네", "아 예" 같은 추임새에 낭독이 끊기면 안 됩니다.</li>
+      <li><b>끊고 들어옴</b> — 앱이 말하는 도중 <b>다른 말</b>을 걸면 즉시 멈춰야 합니다.</li>
+      <li>파란 칸이 <b>손님이 말한 것</b>입니다. 품번을 또박또박 말하고 글자가 맞는지 대조하십시오.</li>
+      <li><b>말끝→응답</b>이 이 방식의 진짜 지연입니다. 검색 턴은 5~12초가 정상입니다.</li>
+    </ul>
+    <div id="events"></div>
+  </details>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // 페이지는 GitHub Pages(HTTPS)에, API는 Supabase 함수에 있다 — 기존 시험대와 같은 이유.
+  // ☠️ 이 시험대는 OpenAI Realtime을 **한 번도 부르지 않는다**. 귀와 입은 폰이고,
+  //    판단·대본은 서버의 ?r=turn 이 전부 만든다(docs/34 §3 · docs/36).
+  var API = "https://wjlzfknaezwwyusdrdtt.supabase.co/functions/v1/voice";
+  var DEV = "voice-native-probe";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ── 상태 ────────────────────────────────────────────────────────────
+  var running = false;
+  var rec = null;            // SpeechRecognition
+  var tok = "";
+  var sessionId = null;
+  var callId = "nat-" + Math.random().toString(36).slice(2, 10);
+  var seq = 0;               // 겹침 큐 — 최신 요청만 채택한다(docs/36 작업 2)
+  var pending = "";          // 확정 자막 누적(말끝 디바운스용)
+  var silenceTimer = null;
+  var speakAt = 0;           // 말끝 시각
+  var inFlight = 0;
+
+  // 낭독 큐
+  var queue = [];            // 남은 문장 조각
+  var speakingNow = "";      // 지금 읽고 있는 조각
+  var spokenWindow = [];     // 최근 조각들 — 전사가 늦게 도착해도 에코로 잡으려고 남긴다
+  var fillerTimer = null;
+  var endAfterSpeak = false;
+
+  var mets = { turns: 0, echo: 0, back: 0, cut: 0, stale: 0 };
+
+  // ── 화면 ────────────────────────────────────────────────────────────
+  function log(kind, who, text, ms) {
+    var d = document.createElement("div"); d.className = "turn " + kind;
+    var w = document.createElement("div"); w.className = "who"; w.textContent = who; d.appendChild(w);
+    var s = document.createElement("div"); s.className = "say"; s.textContent = text; d.appendChild(s);
+    if (ms != null) { var m = document.createElement("div"); m.className = "ms"; m.textContent = ms + " ms"; d.appendChild(m); }
+    $("log").appendChild(d); $("log").scrollTop = $("log").scrollHeight;
+  }
+  function ev(n) {
+    var d = document.createElement("div"); d.textContent = n;
+    var b = $("events"); b.appendChild(d);
+    while (b.children.length > 250) b.removeChild(b.firstChild);
+    b.scrollTop = b.scrollHeight;
+  }
+  function status(t, c) { $("stxt").textContent = t; $("dot").className = "dot" + (c ? " " + c : ""); }
+  function note(t, bad) { $("note").textContent = t; $("note").className = bad ? "bad" : ""; }
+  function paintMets() {
+    $("turns").textContent = mets.turns;
+    $("echo").textContent = mets.echo;
+    $("back").textContent = mets.back;
+    $("cut").textContent = mets.cut;
+    $("stale").textContent = mets.stale;
+    $("m-stale").className = "met" + (mets.stale > 0 ? " bad" : "");
+    $("m-echo").className = "met" + (mets.echo > 0 ? " good" : "");
+  }
+  function paintHeard(fin, interim) {
+    $("heard").innerHTML = "";
+    if (fin) { var b = document.createElement("b"); b.textContent = fin + " "; $("heard").appendChild(b); }
+    $("heard").appendChild(document.createTextNode(interim || ""));
+    if (!fin && !interim) $("heard").textContent = running ? "듣고 있습니다…" : "듣는 말이 여기 실시간으로 찍힙니다.";
+  }
+
+  function passcode() {
+    var t = localStorage.getItem("voice_token");
+    if (!t) {
+      t = window.prompt("암호를 입력하세요");
+      if (t) localStorage.setItem("voice_token", t.trim());
+    }
+    return t ? t.trim() : "";
+  }
+
+  // ── 설정값 ──────────────────────────────────────────────────────────
+  function opt(id) { return $(id).value; }
+  function silenceMs() { return parseInt(opt("silence"), 10) || 900; }
+  function gapMs() { return parseInt(opt("gap"), 10); }
+  function bargeOn() { return opt("barge") === "on"; }
+  function fillerOn() { return opt("filler") === "on"; }
+
+  var ECHO_TH = 0.42;   // 에코로 볼 겹침 비율 — 낮추면 손님 말까지 삼킨다
+  // ☠️ 길이로 맞장구를 가르면 **짧은 진짜 질문이 삼켜진다** — "납기요"·"얼마"·"재고"는 3자 이하다.
+  //    그래서 길이는 잡음(한 글자)만 걷고, 맞장구 판정은 아래 목록에 맡긴다.
+  var MIN_BARGE = 2;    // 이 글자 수 미만은 잡음으로 본다
+  var FILLER_AT = 900;  // 이 시간 넘게 답이 안 오면 대기 멘트
+
+  // ☠️ 맞장구를 끼어들기로 오인하면 통화가 오히려 나빠진다 — AEC를 깔아도 남는 문제다.
+  //    (Realtime 서버 VAD도 같은 걸 겪었다. 여기서 코드로 막는다.)
+  var BACKCHANNEL = /^(네+|넵|예+|응+|음+|어+|아+|그래+|그렇+(구나|군요|네요)?|맞아요?|맞습니다|알겠(어요|습니다)?|오케이|okay|ok|하+|아\s*네|네\s*네|아\s*예|그+|저+)[.!?~\s]*$/i;
+
+  // ── 에코 판정 (2층) ─────────────────────────────────────────────────
+  // 앱은 자기가 지금 무슨 말을 하는지 정확히 안다. 들어온 자막이 그 말과 겹치면 자기 목소리다.
+  // ⚠️ 지금 조각만 보면 안 된다 — 전사는 늘 한 박자 늦어 **직전 조각**이 뒤늦게 도착한다.
+  function norm(s) { return String(s || "").replace(/[^0-9A-Za-z가-힣]/g, ""); }
+  function bigrams(s) {
+    var out = {}; for (var i = 0; i < s.length - 1; i++) out[s.slice(i, i + 2)] = 1; return out;
+  }
+  function dice(a, b) {
+    if (a.length < 2 || b.length < 2) return a && b && (a === b) ? 1 : 0;
+    var A = bigrams(a), B = bigrams(b), hit = 0, n = 0;
+    for (var k in A) { n++; if (B[k]) hit++; }
+    return n ? hit / n : 0;
+  }
+  function isEcho(heard) {
+    var h = norm(heard);
+    if (h.length < 2) return false;
+    var pool = spokenWindow.concat(speakingNow ? [speakingNow] : []);
+    for (var i = 0; i < pool.length; i++) {
+      if (dice(h, norm(pool[i])) >= ECHO_TH) return true;
+    }
+    return false;
+  }
+
+  // ── 낭독 (1층: 문장 조각 + 틈) ──────────────────────────────────────
+  // 한 덩어리로 읽지 않는다. 조각 사이의 틈에는 재생이 완전히 멈춰 있어 **에코가 없는**
+  // 깨끗한 청취 창이 열린다 — AEC 없이 끼어들기를 얻는 가장 싼 방법이다.
+  function splitSentences(t) {
+    var s = String(t || "").trim();
+    if (!s) return [];
+    // ⚠️ 후방탐색(?<=)은 구형 iOS 사파리에서 **구문 오류로 스크립트를 통째로 죽인다**.
+    //    가름표를 끼워 넣고 쪼개는 수법도 안 쓴다 — 가름표가 본문에 섞이면 그대로 터진다.
+    //    그래서 글자를 하나씩 훑는다. 느리지만 320자짜리 대본에는 아무 부담이 없다.
+    var out = [], buf = "";
+    for (var i = 0; i < s.length; i++) {
+      buf += s.charAt(i);
+      // 문장 끝은 **뒤가 공백일 때만** 인정한다 — 안 그러면 소수점 3.5가 갈라진다
+      var isEnd = ".!?…".indexOf(s.charAt(i)) >= 0;
+      var nextBlank = (i + 1 >= s.length) || /\s/.test(s.charAt(i + 1));
+      if (isEnd && nextBlank) { if (buf.trim()) out.push(buf.trim()); buf = ""; }
+    }
+    if (buf.trim()) out.push(buf.trim());
+
+    // 긴 문장은 쉼표에서 한 번 더 쪼갠다 — 틈이 촘촘해야 끼어들 자리가 생긴다.
+    // (너무 잘게 쪼개면 낭독이 뚝뚝 끊겨 들리므로 20자 미만 조각은 만들지 않는다)
+    var fine = [];
+    for (var k = 0; k < out.length; k++) {
+      var p0 = out[k];
+      if (p0.length <= 60) { fine.push(p0); continue; }
+      var b2 = "";
+      for (var m = 0; m < p0.length; m++) {
+        b2 += p0.charAt(m);
+        var isC = ",·".indexOf(p0.charAt(m)) >= 0;
+        var nx = (m + 1 >= p0.length) || /\s/.test(p0.charAt(m + 1));
+        if (isC && nx && b2.trim().length >= 20) { fine.push(b2.trim()); b2 = ""; }
+      }
+      if (b2.trim()) fine.push(b2.trim());
+    }
+    return fine;
+  }
+
+  function enqueueSpeak(text) {
+    var parts = splitSentences(text);
+    if (!parts.length) return;
+    queue = queue.concat(parts);
+    if (!speakingNow) playNext();
+  }
+
+  function playNext() {
+    if (!running) { queue = []; speakingNow = ""; return; }
+    if (!queue.length) {
+      speakingNow = "";
+      status("듣고 있습니다", "live");
+      if (endAfterSpeak) { endAfterSpeak = false; ev("서버 판정: 통화 종료"); stopAll("통화가 끝났습니다"); }
+      return;
+    }
+    var s = queue.shift();
+    speakingNow = s;
+    spokenWindow.push(s);
+    while (spokenWindow.length > 3) spokenWindow.shift();
+    status("말하는 중", "say");
+
+    var u = new SpeechSynthesisUtterance(s);
+    u.lang = "ko-KR";
+    u.rate = parseFloat(opt("rate")) || 1;
+    var v = pickVoice();
+    if (v) u.voice = v;
+    u.onend = function () {
+      speakingNow = "";
+      setTimeout(playNext, gapMs());   // ← 이 틈이 청취 창이다
+    };
+    u.onerror = function (e) {
+      ev("낭독 오류: " + (e && e.error));
+      speakingNow = "";
+      setTimeout(playNext, gapMs());
+    };
+    try { window.speechSynthesis.speak(u); }
+    catch (err) { ev("낭독 실패: " + err); speakingNow = ""; setTimeout(playNext, gapMs()); }
+  }
+
+  function cutSpeech(why) {
+    if (!speakingNow && !queue.length) return;
+    queue = [];
+    speakingNow = "";
+    try { window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ }
+    ev("낭독 중단 — " + why);
+  }
+
+  var voices = [];
+  function loadVoices() {
+    voices = (window.speechSynthesis.getVoices() || []).filter(function (v) {
+      return /^ko/i.test(v.lang || "");
+    });
+    var sel = $("voice");
+    var keep = sel.value;
+    sel.innerHTML = "";
+    var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "기본"; sel.appendChild(o0);
+    voices.forEach(function (v, i) {
+      var o = document.createElement("option");
+      o.value = String(i); o.textContent = v.name + (v.localService ? " (기기)" : " (온라인)");
+      sel.appendChild(o);
+    });
+    if (keep) sel.value = keep;
+    if (!voices.length) ev("한국어 TTS 목소리를 못 찾음 — 기본 목소리로 갑니다");
+  }
+  function pickVoice() {
+    var i = $("voice").value;
+    return i === "" ? null : (voices[parseInt(i, 10)] || null);
+  }
+
+  // ── 듣기 ────────────────────────────────────────────────────────────
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function startRec() {
+    if (!running) return;
+    try { rec = new SR(); } catch (e) { note("음성 인식을 열 수 없습니다: " + e, true); return; }
+    rec.lang = "ko-KR";
+    rec.continuous = true;      // ⚠️ iOS는 이 값을 사실상 무시한다 — 아래 재시작 루프가 진짜 장치다
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = function () { ev("듣기 시작"); if (!speakingNow) status("듣고 있습니다", "live"); };
+
+    rec.onresult = function (e) {
+      var fin = "", interim = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += t; else interim += t;
+      }
+      var live = (fin || interim).trim();
+      if (!live) return;
+
+      // 앱이 말하는 중이라면 — 에코인가, 맞장구인가, 진짜 끼어들기인가
+      if (speakingNow || queue.length) {
+        if (isEcho(live)) {
+          mets.echo++; paintMets(); ev("에코 차단: " + live.slice(0, 24));
+          if (fin) { /* 확정 에코는 버린다 */ }
+          paintHeard("", "");
+          return;
+        }
+        if (BACKCHANNEL.test(live) || norm(live).length < MIN_BARGE) {
+          mets.back++; paintMets(); ev("맞장구 무시: " + live.slice(0, 16));
+          paintHeard("", "");
+          return;
+        }
+        if (bargeOn()) {
+          mets.cut++; paintMets();
+          cutSpeech("손님이 끼어듦");
+        } else {
+          ev("끼어들기 끔 — 무시: " + live.slice(0, 20));
+          paintHeard("", "");
+          return;
+        }
+      }
+
+      if (fin) {
+        pending = (pending + " " + fin).trim();
+        speakAt = Date.now();
+      }
+      paintHeard(pending, interim);
+
+      // 말끝 디바운스 — 조각난 발화를 한 턴으로 합친다.
+      // ☠️ 이게 없으면 "3마력이요… 어… R404A"가 두 턴으로 쪼개져 문진이 깨진다.
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(flushTurn, silenceMs());
+    };
+
+    rec.onerror = function (e) {
+      var k = e && e.error;
+      if (k === "no-speech" || k === "aborted") { ev("듣기 재시작(" + k + ")"); return; }
+      if (k === "not-allowed" || k === "service-not-allowed") {
+        note("마이크 권한이 거부되었습니다. 브라우저 설정에서 허용해 주십시오.", true);
+        stopAll("마이크 권한 없음"); return;
+      }
+      ev("듣기 오류: " + k);
+    };
+
+    // ☠️ 안드로이드 크롬은 continuous=true 여도 묵음이면 스스로 끝난다. iOS는 더 자주 끝난다.
+    //    **재시작 루프가 핸즈프리의 전부다** — 이게 없으면 한 번 말하고 통화가 죽는다.
+    rec.onend = function () {
+      if (!running) { status("대기"); return; }
+      setTimeout(function () { if (running) startRec(); }, 250);
+    };
+
+    try { rec.start(); }
+    catch (e) { ev("start 실패(중복?) — 재시도"); setTimeout(function () { if (running) startRec(); }, 400); }
+  }
+
+  function flushTurn() {
+    silenceTimer = null;
+    var text = pending.trim();
+    pending = "";
+    paintHeard("", "");
+    if (!text) return;
+    sendTurn(text);
+  }
+
+  // ── 서버 판정 ───────────────────────────────────────────────────────
+  function api(path, body, ms) {
+    var ctl = ("AbortController" in window) ? new AbortController() : null;
+    var to = ctl ? setTimeout(function () { ctl.abort(); }, ms || 20000) : null;
+    return fetch(API + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-voice-token": tok },
+      body: JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      if (to) clearTimeout(to);
+      return r.text().then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) { /* 본문이 JSON이 아님 */ }
+        if (!r.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
+        return j || {};
+      });
+    });
+  }
+
+  function sendTurn(text) {
+    var my = ++seq;
+    var t0 = Date.now();
+    mets.turns++; paintMets();
+    log("user", "손님이 말한 것", text);
+    inFlight++;
+
+    // 대기 멘트 — 검색은 5~12초다. 무료(폰 TTS)라 부담 없이 손님에게 신호를 준다.
+    if (fillerTimer) clearTimeout(fillerTimer);
+    if (fillerOn()) {
+      fillerTimer = setTimeout(function () {
+        if (my === seq && inFlight > 0 && !speakingNow && !queue.length) enqueueSpeak("네, 확인해 보겠습니다.");
+      }, FILLER_AT);
+    }
+
+    var body = { transcript: text, session_id: sessionId, device_id: DEV, call_id: callId };
+
+    var attempt = function (retry) {
+      return api("?r=turn", body).catch(function (err) {
+        if (retry > 0) { ev("?r=turn 실패 — 1회 재시도: " + err.message); return attempt(retry - 1); }
+        throw err;
+      });
+    };
+
+    attempt(1).then(function (j) {
+      inFlight--;
+      // ☠️ 겹침 큐 — 손님이 말을 고쳐 말하면 옛 질문의 답이 뒤늦게 재생된다(docs/36 작업 2).
+      if (my !== seq) { mets.stale++; paintMets(); ev("낡은 응답 버림 #" + my); return; }
+      if (fillerTimer) { clearTimeout(fillerTimer); fillerTimer = null; }
+
+      var ms = Date.now() - t0;
+      $("lat").innerHTML = ms + "<small>ms</small>";
+      $("m-lat").className = "met" + (ms > 13000 ? " bad" : ms < 1500 ? " good" : "");
+
+      if (j.session_id) sessionId = j.session_id;
+
+      if (j.action === "ignore") { ev("서버 무시 (" + ms + "ms)"); return; }
+      if (j.heard) log("tool", "서버가 알아들은 것", j.heard);
+
+      var screen = j.display || j.text || "";
+      var voice = j.speak || screen;
+      log("app", "상담원 (" + (j.action || "?") + ")", screen, ms);
+
+      if (j.end_call) endAfterSpeak = true;
+      // ⚠️ speak_instructions 는 여기서 **쓰지 않는다** — 모델이 대본을 안 지킬까 봐 만든
+      //    장치라, 폰 TTS 처럼 적힌 대로만 읽는 입에는 필요 없다.
+      enqueueSpeak(voice);
+    }).catch(function (err) {
+      inFlight--;
+      if (fillerTimer) { clearTimeout(fillerTimer); fillerTimer = null; }
+      if (my !== seq) return;
+      if (/암호|token|401/i.test(err.message)) localStorage.removeItem("voice_token");
+      log("err", "오류", err.message);
+      ev("turn 실패 — 이 턴은 버립니다(침묵이 낫다)");
+    });
+  }
+
+  // ── 시작/끝 ─────────────────────────────────────────────────────────
+  function startAll() {
+    if (!SR) {
+      note("이 브라우저는 음성 인식을 지원하지 않습니다. 안드로이드는 크롬, 아이폰은 사파리로 열어 주십시오.", true);
+      return;
+    }
+    if (!("speechSynthesis" in window)) { note("이 브라우저는 음성 합성을 지원하지 않습니다.", true); return; }
+
+    tok = passcode();
+    if (!tok) { note("암호가 필요합니다.", true); return; }
+
+    running = true;
+    sessionId = null;
+    callId = "nat-" + Math.random().toString(36).slice(2, 10);
+    seq = 0; pending = ""; queue = []; speakingNow = ""; spokenWindow = []; endAfterSpeak = false;
+    mets = { turns: 0, echo: 0, back: 0, cut: 0, stale: 0 }; paintMets();
+    $("log").innerHTML = "";
+    $("go").disabled = true; $("stop").disabled = false;
+    note("스피커로 하십시오 — 자기 목소리를 걸러내는지가 이 시험의 핵심입니다.");
+
+    // ⚠️ iOS는 **사용자 손짓 안에서** 한 번 말해 둬야 그 뒤로 TTS가 열린다.
+    //    이 무음 발화가 없으면 첫 응답이 소리 없이 지나간다.
+    try {
+      var warm = new SpeechSynthesisUtterance(" ");
+      warm.volume = 0; warm.lang = "ko-KR";
+      window.speechSynthesis.speak(warm);
+    } catch (e) { /* 무시 */ }
+
+    loadVoices();
+    startRec();
+    status("듣고 있습니다", "live");
+    ev("통화 시작 " + callId);
+  }
+
+  function stopAll(msg) {
+    running = false;
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    if (fillerTimer) { clearTimeout(fillerTimer); fillerTimer = null; }
+    queue = []; speakingNow = ""; pending = "";
+    try { window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ }
+    try { if (rec) rec.stop(); } catch (e) { /* 무시 */ }
+    rec = null;
+    $("go").disabled = false; $("stop").disabled = true;
+    status(msg || "대기");
+    paintHeard("", "");
+    ev("통화 끝");
+  }
+
+  $("go").addEventListener("click", startAll);
+  $("stop").addEventListener("click", function () { stopAll("끊었습니다"); });
+  $("voice").addEventListener("change", function () { ev("목소리 바꿈"); });
+
+  if ("speechSynthesis" in window) {
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  if (!SR) note("이 브라우저는 음성 인식을 지원하지 않습니다. 안드로이드는 크롬, 아이폰은 사파리로 열어 주십시오.", true);
+  paintMets();
+})();
+</script>
+</body>
+</html>
