@@ -302,7 +302,7 @@ $("#pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#pw
 $("#pwGo").onclick = () => { const pw = $("#pwInput").value; if (pw) unlock({ pw, save: true }); };
 
 async function fetchBin() {
-  const r = await fetch("data.bin?v=msyunnpe");
+  const r = await fetch("data.bin?v=mt00h425");
   if (!r.ok) throw new Error("데이터 파일을 못 받았습니다 (HTTP " + r.status + ")");
   const total = +r.headers.get("content-length") || 0;
   if (!r.body || !total) return new Uint8Array(await r.arrayBuffer());
@@ -465,7 +465,7 @@ function renderDash() {
   const heroes = [
     ["제품", num(df.length) + "개", "댄포스 카탈로그 기준<br>+ 알옥션 등록분 " + (D.parts.length - df.length) + "개 별도"],
     ["모델(품번)", num(vn) + "개", "제품 아래 변형 단위"],
-    ["판매가", pctS(priceN, vn), num(priceN) + " / " + num(vn) + " 모델"],
+    ["판매가(부가세 별도)", pctS(priceN, vn), num(priceN) + " / " + num(vn) + " 모델"],
     ["소비자가(가격표)", pctS(costN, vn), num(costN) + " 모델" + (conflictN ? ` · 충돌 ${conflictN}` : "")],
     ["사양", pctS(specN, vn), num(specN) + " 모델 (스토어 속성·사양문구)"],
     ["사진", num(phF + phM + phD + det) + "장", `현장 ${num(phF)} · 제조사 ${num(phM)} · 도면 ${num(phD)} · 상세 ${num(det)}`],
@@ -726,7 +726,7 @@ function openPart(pid) {
       <span class="mn">${esc(v.m)}</span>
       <span class="chips">${chips.map((c) => `<span class="chip">${c}</span>`).join("")}${v.dp.length ? `<span class="chip">📄${v.dp.length}</span>` : ""}${v.dc === 1 ? `<span class="tag t-gray">단종</span>` : v.dc === 2 ? `<span class="tag t-gray">KR스토어 비판매</span>` : ""}${v.cf ? `<span class="tag t-warn">가격충돌</span>` : ""}</span>
       <span class="sp2"></span>
-      <span class="pr num">${v.p != null ? won(v.p) + ` <small>판매가</small>` : `<span class="nop">가격 없음</span>`}</span>
+      <span class="pr num">${v.p != null ? won(v.p) + ` <small>판매가·부가세 별도</small>` : `<span class="nop">가격 없음</span>`}</span>
     </div><div class="vbody"></div></div>`;
   }
   function vBody(v) {
@@ -749,7 +749,7 @@ function openPart(pid) {
       <div class="vsec"><h4>식별</h4><table class="mini">${idRows.map(([k, x]) => `<tr><td>${k}</td><td>${x}</td></tr>`).join("")}</table></div>
       <div class="vsec"><h4>가격</h4><table class="mini">
         ${v.c != null ? `<tr><td>가격표 단가${v.cb ? ` <span class="hh">(${esc(BASIS[v.cb] ?? v.cb)})</span>` : ""}</td><td class="num">${won(v.c)}</td></tr>` : ""}
-        ${v.p != null ? `<tr><td><b>판매가 (일반가)</b></td><td class="num"><b>${won(v.p)}</b></td></tr>` + priceRows : `<tr><td>판매가</td><td>없음</td></tr>`}
+        ${v.p != null ? `<tr><td><b>판매가 (일반가 · 부가세 별도 · 가격표 기본가 그대로)</b></td><td class="num"><b>${won(v.p)}</b></td></tr>` + priceRows : `<tr><td>판매가</td><td>없음</td></tr>`}
         ${v.cn ? `<tr><td>가격 메모</td><td>${esc(v.cn)}</td></tr>` : ""}
         ${v.ps ? `<tr><td>가격 출처</td><td>${esc(v.ps)}</td></tr>` : ""}
       </table></div>
