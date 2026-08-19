@@ -49,7 +49,8 @@
   // (위 주석대로 이것은 문턱이지 잠금이 아니다.)
   const WANT = "a8d51e9f3373191251a83f30a7438dd08d921d0b78bd5cfe8dae4737d2b14410";
   const KEY = "rchatai.appweb.ok";
-  const go = () => { location.replace("app/"); };
+  // 바로 AI 상담 탭으로 — 이 사이트의 목적이 채팅이다. 홈·검색·장바구니는 탭바로 오간다.
+  const go = () => { location.replace("app/chat"); };
   if (sessionStorage.getItem(KEY) === WANT) go();
   document.getElementById("f").onsubmit = async (e) => {
     e.preventDefault();
