@@ -302,7 +302,7 @@ $("#pwInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#pw
 $("#pwGo").onclick = () => { const pw = $("#pwInput").value; if (pw) unlock({ pw, save: true }); };
 
 async function fetchBin() {
-  const r = await fetch("data.bin?v=mt00h425");
+  const r = await fetch("data.bin?v=mt0ynl2q");
   if (!r.ok) throw new Error("데이터 파일을 못 받았습니다 (HTTP " + r.status + ")");
   const total = +r.headers.get("content-length") || 0;
   if (!r.body || !total) return new Uint8Array(await r.arrayBuffer());
