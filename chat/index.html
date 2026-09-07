@@ -45,21 +45,35 @@
   <div class="note">여기서 만든 주문·장바구니·상담 기록은 실제 데이터베이스에 남습니다. 손님에게 나가는 앱과는 별개입니다.</div>
 </form>
 <script>
-  // 비밀번호는 글자 그대로 두지 않는다 — 소스를 봐도 바로 안 보이게 해시로만 비교한다.
-  // (위 주석대로 이것은 문턱이지 잠금이 아니다.)
-  const WANT = "563fac92e99fdece92274e1c1c3dc958edddb35f2f6f0cbd3fd21cc48d988c63";
+  // ☠️ 이 페이지는 공개다 — 여기 실리는 대조값은 **누구나 읽는다.**
+  //    종전에는 sha256(비밀번호) 한 번이었다. 무염 1회 해시는 초당 수십억 번 대입이 되므로,
+  //    게시하는 것이 곧 비밀번호를 게시하는 것이었다 — 2026-09-03 에 실제로 그 값이
+  //    공용 비밀번호를 드러냈고, 그 값이 유료 통화 키 발급과 비공개 저장소까지 여는 값이었다.
+  //    지금은 같은 비밀번호를 PBKDF2-SHA256 60만 회 + 난수 소금으로 늘려 둔다 —
+  //    **넣는 값은 그대로**이고, 게시된 대조값에서 역산하는 쪽만 느려진다.
+  const SALT = "86c522e60c44f794153e61f1f40bcb60";   // 16바이트 난수(hex). 빌드마다 새로 뽑는다
+  const ITER = 600000;
+  const WANT = "d52dfe2637b68f08d342165210c8e2e09ba38b2d0c866c9d47b816a3dfb941ab";     // PBKDF2(비밀번호, SALT, ITER) 32바이트(hex)
   const KEY = "rchatai.appweb.ok";
   // 바로 AI 상담 탭으로 — 이 사이트의 목적이 채팅이다. 홈·검색·장바구니는 탭바로 오간다.
   const go = () => { location.replace("app/chat"); };
   if (sessionStorage.getItem(KEY) === WANT) go();
   document.getElementById("f").onsubmit = async (e) => {
     e.preventDefault();
-    const pw = document.getElementById("pw").value;
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
-    const hex = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-    if (hex !== WANT) { document.getElementById("err").textContent = "비밀번호가 다릅니다."; document.getElementById("pw").select(); return; }
-    sessionStorage.setItem(KEY, WANT);
-    go();
+    // 60만 회는 폰에서 0.5~2초 걸린다 — 그동안 버튼을 잠가 두 번 눌리지 않게 한다.
+    const btn = e.target.querySelector("button");
+    btn.disabled = true; btn.textContent = "확인 중…";
+    try {
+      const pw = document.getElementById("pw").value;
+      const salt = new Uint8Array(SALT.match(/../g).map(b => parseInt(b, 16)));
+      const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+      const bits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" }, base, 256);
+      const hex = [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, "0")).join("");
+      if (hex !== WANT) { document.getElementById("err").textContent = "비밀번호가 다릅니다."; document.getElementById("pw").select(); return; }
+      sessionStorage.setItem(KEY, WANT);
+      go();
+    } finally { btn.disabled = false; btn.textContent = "열기"; }
   };
 </script>
 </body>
