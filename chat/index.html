@@ -51,9 +51,9 @@
   //    공용 비밀번호를 드러냈고, 그 값이 유료 통화 키 발급과 비공개 저장소까지 여는 값이었다.
   //    지금은 같은 비밀번호를 PBKDF2-SHA256 60만 회 + 난수 소금으로 늘려 둔다 —
   //    **넣는 값은 그대로**이고, 게시된 대조값에서 역산하는 쪽만 느려진다.
-  const SALT = "86c522e60c44f794153e61f1f40bcb60";   // 16바이트 난수(hex). 빌드마다 새로 뽑는다
+  const SALT = "d530ad4c5e3413c5d3f78164ee5f9af1";   // 16바이트 난수(hex). 빌드마다 새로 뽑는다
   const ITER = 600000;
-  const WANT = "d52dfe2637b68f08d342165210c8e2e09ba38b2d0c866c9d47b816a3dfb941ab";     // PBKDF2(비밀번호, SALT, ITER) 32바이트(hex)
+  const WANT = "f09c4a111b93b5f73d7e4bada9582858b413fa583785910162c204e38df381e7";     // PBKDF2(비밀번호, SALT, ITER) 32바이트(hex)
   const KEY = "rchatai.appweb.ok";
   // 바로 AI 상담 탭으로 — 이 사이트의 목적이 채팅이다. 홈·검색·장바구니는 탭바로 오간다.
   const go = () => { location.replace("app/chat"); };
